@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settle.config.SettleProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -45,14 +44,14 @@ public class AgentService {
             }
             """;
 
-    private final ChatClient chatClient;
+    private final LlmClient llm;
     private final SettleTools tools;
     private final ObjectMapper json;
     private final int timeoutSeconds;
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
-    public AgentService(ChatClient chatClient, SettleTools tools, ObjectMapper json, SettleProperties props) {
-        this.chatClient = chatClient;
+    public AgentService(LlmClient llm, SettleTools tools, ObjectMapper json, SettleProperties props) {
+        this.llm = llm;
         this.tools = tools;
         this.json = json;
         this.timeoutSeconds = props.llmTimeoutSeconds();
@@ -63,12 +62,7 @@ public class AgentService {
         Future<String> future = executor.submit(() -> {
             InvestigationContext.set(investigationId);
             try {
-                return chatClient.prompt()
-                        .system(SYSTEM_PROMPT)
-                        .user("Investigate trade " + tradeRef + ". Return only the JSON object.")
-                        .tools(tools)
-                        .call()
-                        .content();
+                return llm.chat(SYSTEM_PROMPT, "Investigate trade " + tradeRef + ". Return only the JSON object.", tools);
             } finally {
                 InvestigationContext.clear();
             }
