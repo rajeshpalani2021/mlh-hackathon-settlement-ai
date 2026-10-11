@@ -150,6 +150,38 @@
     </section>
   }
 
+  @if (drafts().length > 0) {
+    <section class="card drafts">
+      <div class="card-h">
+        <b>Wiki Drafts — Nimble Research</b>
+        <span>{{ drafts().length }} pending review</span>
+      </div>
+      <div class="draft-list">
+        @for (d of drafts(); track d.id) {
+          <div class="draft-item" [class.reviewed]="d.status === 'reviewed'">
+            <div class="draft-info">
+              <span class="mono strong">{{ d.code }}</span>
+              <span class="tag" [class.pending]="d.status === 'pending'" [class.drafted]="d.status === 'drafted'" [class.reviewed]="d.status === 'reviewed'">
+                {{ d.status }}
+              </span>
+              @if (d.draft_page_path) {
+                <span class="draft-path">{{ d.draft_page_path }}</span>
+              }
+              @if (d.nimble_sources?.length) {
+                <span class="draft-sources">{{ d.nimble_sources.length }} source(s) from Nimble</span>
+              }
+            </div>
+            @if (d.status !== 'reviewed') {
+              <button class="btn-ghost" (click)="reviewDraft(d.id)">
+                <span class="material-icons-round">check</span>Mark Reviewed
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  }
+
   @if (panelRef(); as ref) {
     <section class="panel">
       <div class="panel-h">

@@ -78,3 +78,14 @@ END $$
 
 CALL refresh_continuous_aggregate('settle_stats', NULL, NULL)
 @@
+
+CREATE TABLE IF NOT EXISTS unknown_code (
+  id SERIAL PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  investigation_id UUID REFERENCES investigation(id),
+  status TEXT NOT NULL DEFAULT 'pending',
+  nimble_sources TEXT[],
+  draft_page_path TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+@@
