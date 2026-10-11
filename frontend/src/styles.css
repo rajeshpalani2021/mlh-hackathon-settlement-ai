@@ -96,7 +96,31 @@ tr.sel td{background:#f6f3ff}
 .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--purple);margin-right:3px;animation:p 1s infinite}
 .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
 
+/* Trade detail: lifecycle timeline + SWIFT messages */
+tr.clickable{cursor:pointer}
+.detail .card-h b .mono{font-size:13px}
+.detail-b{padding:18px;display:grid;grid-template-columns:1fr 1.6fr;gap:24px}
+.detail-b.one{grid-template-columns:1fr}
+.timeline{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column}
+.timeline li{display:flex;gap:10px;position:relative;padding-bottom:14px}
+.timeline li:not(:last-child)::before{content:'';position:absolute;left:5px;top:14px;bottom:0;width:2px;background:var(--s200)}
+.timeline .dot{width:12px;height:12px;border-radius:50%;margin-top:3px;flex-shrink:0;background:var(--s400)}
+.ev{font-size:13px;font-weight:700;color:var(--s800)}
+.when{font-size:11px;color:var(--s500)}
+.ev-note{font-size:12px;color:var(--s600);margin-top:2px;font-family:var(--mono)}
+.msgs{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.msg{border:1px solid var(--s200);border-left:3px solid var(--blue);border-radius:8px;overflow:hidden}
+.msg.in{border-left-color:var(--purple)}
+.msg-h{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:0;text-align:left;font-size:12px}
+.msg-h:hover{background:var(--s50)}
+.msg-h .dir{color:var(--blue)}
+.msg.in .msg-h .dir{color:var(--purple)}
+.msg-h .chev{margin-left:auto;color:var(--s400)}
+.tag.code{background:var(--blue-50);color:var(--blue-700);font-family:var(--mono)}
+.tag.reason{background:var(--red-soft);color:var(--red-ink);font-family:var(--mono)}
+.raw{margin:0;padding:12px;background:var(--navy);color:#dbe7ff;font:12px/1.5 var(--mono);overflow-x:auto;white-space:pre}
+
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 12px 24px rgba(15,31,76,.18);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 .toast.show{opacity:1}
 
-@media (max-width:760px){.kpis{grid-template-columns:1fr}.panel-b{grid-template-columns:1fr}.stats{display:none}}
+@media (max-width:760px){.kpis{grid-template-columns:1fr}.panel-b,.detail-b{grid-template-columns:1fr}.stats{display:none}}

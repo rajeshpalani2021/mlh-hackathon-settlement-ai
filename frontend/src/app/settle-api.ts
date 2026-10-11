@@ -53,6 +53,31 @@ export interface ApproveResult {
   recipeWritten: string | null;
 }
 
+export interface SwiftMessage {
+  msgId: string;
+  eventTs: string;
+  direction: 'IN' | 'OUT';
+  msgType: string;
+  rawText: string;
+  statusCode: string | null;
+  reasonCode: string | null;
+}
+
+export interface TradeEvent {
+  eventTs: string;
+  eventType: string;
+  reasonCode: string | null;
+  counterpartyBic: string | null;
+  minutesPending: number | null;
+  detail: Record<string, unknown> | null;
+}
+
+export interface TradeHistory {
+  tradeRef: string;
+  messages: SwiftMessage[];
+  events: TradeEvent[];
+}
+
 export interface Metrics {
   investigations: number;
   verified: number;
@@ -66,6 +91,10 @@ export class SettleApi {
 
   trades(): Observable<Trade[]> {
     return this.http.get<Trade[]>(`${API}/trades`);
+  }
+
+  history(tradeRef: string): Observable<TradeHistory> {
+    return this.http.get<TradeHistory>(`${API}/trades/${tradeRef}/messages`);
   }
 
   metrics(): Observable<Metrics> {

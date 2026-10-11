@@ -54,7 +54,8 @@
         </thead>
         <tbody>
           @for (t of shown(); track t.tradeRef) {
-            <tr [class.sel]="panelRef() === t.tradeRef">
+            <tr class="clickable" [class.sel]="selectedRef() === t.tradeRef || panelRef() === t.tradeRef"
+                (click)="select(t.tradeRef)" title="Show lifecycle and SWIFT messages">
               <td class="mono">{{ t.tradeRef }}</td>
               <td><span class="side" [class]="t.side">{{ t.side }}</span></td>
               <td class="strong">{{ t.securityName }}</td>
@@ -64,7 +65,7 @@
               <td><span class="pill" [style.background]="color(t.status)">{{ t.status }}</span></td>
               <td>
                 @if (isFail(t)) {
-                  <button class="btn-ai" (click)="investigate(t.tradeRef)" [disabled]="busy()">
+                  <button class="btn-ai" (click)="investigate(t.tradeRef); $event.stopPropagation()" [disabled]="busy()">
                     <span class="material-icons-round">auto_awesome</span>Investigate
                   </button>
                 }
@@ -77,6 +78,67 @@
       </table>
     </div>
   </section>
+
+  @if (selectedRef(); as ref) {
+    <section class="card detail">
+      <div class="card-h">
+        <b>Trade <span class="mono">{{ ref }}</span> · lifecycle &amp; SWIFT messages</b>
+        <button class="btn-ghost" (click)="select(ref)">Close</button>
+      </div>
+
+      @if (history(); as h) {
+        <div class="detail-b">
+          <div>
+            <div class="eyebrow">Lifecycle</div>
+            <ol class="timeline">
+              @for (e of h.events; track $index) {
+                <li>
+                  <span class="dot" [style.background]="color(e.eventType)"></span>
+                  <div>
+                    <div><span class="ev">{{ e.eventType }}</span> <span class="when">{{ time(e.eventTs) }}</span></div>
+                    @if (eventNote(e); as note) {
+                      <div class="ev-note">{{ note }}</div>
+                    }
+                  </div>
+                </li>
+              } @empty {
+                <li class="ev-note">No events yet</li>
+              }
+            </ol>
+          </div>
+
+          <div>
+            <div class="eyebrow">SWIFT messages ({{ h.messages.length }})</div>
+            <div class="msgs">
+              @for (m of h.messages; track m.msgId) {
+                <div class="msg" [class.in]="m.direction === 'IN'">
+                  <button class="msg-h" (click)="toggleMsg(m.msgId)">
+                    <span class="material-icons-round dir">{{ m.direction === 'OUT' ? 'north_east' : 'south_west' }}</span>
+                    <span class="mono strong">{{ m.msgType }}</span>
+                    <span class="when">{{ m.direction === 'OUT' ? 'sent' : 'received' }} {{ time(m.eventTs) }}</span>
+                    @if (m.statusCode && m.statusCode !== m.msgType) {
+                      <span class="tag code">{{ m.statusCode }}</span>
+                    }
+                    @if (m.reasonCode) {
+                      <span class="tag reason">{{ m.reasonCode }}</span>
+                    }
+                    <span class="material-icons-round chev">{{ openMsg() === m.msgId ? 'expand_less' : 'expand_more' }}</span>
+                  </button>
+                  @if (openMsg() === m.msgId) {
+                    <pre class="raw">{{ m.rawText }}</pre>
+                  }
+                </div>
+              } @empty {
+                <div class="ev-note">No messages yet</div>
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="detail-b one"><div class="ev-note">Loading…</div></div>
+      }
+    </section>
+  }
 
   @if (panelRef(); as ref) {
     <section class="panel">

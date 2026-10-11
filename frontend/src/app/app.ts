@@ -1,14 +1,14 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DecimalPipe, PercentPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Investigation, Metrics, SettleApi, Trade } from './settle-api';
+import { Investigation, Metrics, SettleApi, Trade, TradeEvent, TradeHistory } from './settle-api';
 
 type Filter = 'ALL' | 'GOOD' | 'FAIL';
 
 const GOOD = ['NEW', 'SENT', 'ACK', 'MATCHED', 'SETTLED'];
 const COLORS: Record<string, string> = {
   SETTLED: '#1bb8a5', SENT: '#0fb3a1', ACK: '#0fb3a1', MATCHED: '#2663f5',
-  NAK: '#f26262', UNMATCHED: '#f0a500', PENDING: '#7c5cf0',
+  NAK: '#f26262', UNMATCHED: '#f0a500', PENDING: '#7c5cf0', FIXED: '#1742b8',
 };
 
 @Component({
@@ -31,6 +31,11 @@ export class App implements OnInit, OnDestroy {
   result = signal<Investigation | null>(null);
   busy = signal(false);
 
+  // trade detail (lifecycle + SWIFT messages)
+  selectedRef = signal<string | null>(null);
+  history = signal<TradeHistory | null>(null);
+  openMsg = signal<string | null>(null);
+
   good = computed(() => this.trades().filter(t => !this.isFail(t)).length);
   shown = computed(() => this.trades().filter(t =>
     this.filter() === 'ALL' || (this.filter() === 'GOOD') === !this.isFail(t)));
@@ -51,6 +56,46 @@ export class App implements OnInit, OnDestroy {
       error: e => this.error.set(this.message(e)),
     });
     this.api.metrics().subscribe({ next: m => this.metrics.set(m), error: () => {} });
+    this.loadHistory();
+  }
+
+  select(ref: string): void {
+    if (this.selectedRef() === ref) {
+      this.selectedRef.set(null);
+      this.history.set(null);
+      return;
+    }
+    this.selectedRef.set(ref);
+    this.history.set(null);
+    this.openMsg.set(null);
+    this.loadHistory();
+  }
+
+  private loadHistory(): void {
+    const ref = this.selectedRef();
+    if (!ref) return;
+    this.api.history(ref).subscribe({
+      next: h => { if (this.selectedRef() === ref) this.history.set(h); },
+      error: () => { this.selectedRef.set(null); this.history.set(null); },
+    });
+  }
+
+  toggleMsg(id: string): void {
+    this.openMsg.set(this.openMsg() === id ? null : id);
+  }
+
+  time(ts: string): string {
+    return new Date(ts).toLocaleTimeString();
+  }
+
+  eventNote(e: TradeEvent): string {
+    const d = e.detail ?? {};
+    if (e.eventType === 'FIXED') return `:${d['field']}::${d['qualifier']} ${d['oldValue']} → ${d['newValue']}`;
+    const parts: string[] = [];
+    if (e.reasonCode) parts.push(`reason ${e.reasonCode}`);
+    if (e.minutesPending != null) parts.push(`pending ${e.minutesPending} demo min`);
+    if (d['msgRef']) parts.push(`ref ${d['msgRef']}`);
+    return parts.join(' · ');
   }
 
   isFail(t: Trade): boolean {
@@ -63,6 +108,8 @@ export class App implements OnInit, OnDestroy {
 
   resetDemo(): void {
     this.closePanel();
+    this.selectedRef.set(null);
+    this.history.set(null);
     this.api.resetDemo().subscribe({
       next: r => { this.toast(`Demo reset · ${r.loaded} trades sent`); this.load(); },
       error: e => this.toast(this.message(e)),

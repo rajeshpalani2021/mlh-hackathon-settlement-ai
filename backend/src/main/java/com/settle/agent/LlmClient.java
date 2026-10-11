@@ -35,6 +35,7 @@ public class LlmClient {
     private final String model;
     private final double temperature;
     private final int maxTokens;
+    private final String reasoningEffort;
 
     public LlmClient(ObjectMapper json,
                      @Value("${spring.ai.openai.base-url}") String baseUrl,
@@ -42,7 +43,8 @@ public class LlmClient {
                      @Value("${spring.ai.openai.api-key}") String apiKey,
                      @Value("${spring.ai.openai.chat.options.model}") String model,
                      @Value("${spring.ai.openai.chat.options.temperature:0.2}") double temperature,
-                     @Value("${spring.ai.openai.chat.options.max-tokens:8192}") int maxTokens) {
+                     @Value("${spring.ai.openai.chat.options.max-tokens:8192}") int maxTokens,
+                     @Value("${settle.llm-reasoning-effort:low}") String reasoningEffort) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
         factory.setReadTimeout(60_000);
@@ -55,6 +57,7 @@ public class LlmClient {
         this.model = model;
         this.temperature = temperature;
         this.maxTokens = maxTokens;
+        this.reasoningEffort = reasoningEffort;
     }
 
     public String model() {
@@ -83,11 +86,16 @@ public class LlmClient {
             request.put("model", model);
             request.put("temperature", temperature);
             request.put("max_tokens", maxTokens);
+            if (!reasoningEffort.isBlank()) request.put("reasoning_effort", reasoningEffort);
             request.set("messages", messages);
             request.set("tools", toolDefs);
 
+            long start = System.currentTimeMillis();
             JsonNode response = http.post().contentType(MediaType.APPLICATION_JSON).body(request)
                     .retrieve().body(JsonNode.class);
+            log.info("LLM round {}: {} ms, finish_reason={}, usage={}", i + 1, System.currentTimeMillis() - start,
+                    response == null ? null : response.path("choices").path(0).path("finish_reason").asText(),
+                    response == null ? null : response.path("usage"));
             JsonNode message = response == null ? null : response.path("choices").path(0).path("message");
             if (message == null || message.isMissingNode()) {
                 throw new IllegalStateException("LLM returned no message: " + response);

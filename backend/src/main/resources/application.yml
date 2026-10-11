@@ -41,6 +41,8 @@ settle:
   # 1 demo minute = this many real seconds
   demo-minute-seconds: 10
   llm-timeout-seconds: 30
+  # Gemini 3 thinks at high effort by default (slow); low keeps an investigation well under the timeout.
+  llm-reasoning-effort: ${GEMINI_REASONING_EFFORT:low}
   readonly:
     username: ${DB_READONLY_USER:}
     password: ${DB_READONLY_PASSWORD:}
