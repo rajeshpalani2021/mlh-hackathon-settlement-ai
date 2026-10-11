@@ -1,3 +1,13 @@
+@if (loading()) {
+  <div class="loading">
+    <div class="loading-box">
+      <div class="brand">Settle <span class="ai-tag">AI</span></div>
+      <div class="spinner"></div>
+      <div class="loading-text">Loading settlement window…</div>
+    </div>
+  </div>
+}
+
 <header class="top">
   <div class="brand">Settle <span class="ai-tag">AI</span></div>
   @if (metrics(); as m) {
@@ -32,7 +42,7 @@
 
   <div class="kpis">
     <button class="kpi" [class.on]="filter() === 'ALL'" style="--c:var(--blue);--soft:var(--blue-100)" (click)="filter.set('ALL')">
-      <div><div class="lbl">All</div><div class="num">{{ trades().length }}</div><div class="note">Trades in settle window</div></div>
+      <div><div class="lbl">All</div><div class="num">{{ visible().length }}</div><div class="note">Trades in settle window</div></div>
       <div class="icon"><span class="material-icons-round">layers</span></div>
     </button>
     <button class="kpi" [class.on]="filter() === 'GOOD'" style="--c:var(--teal);--soft:var(--teal-soft)" (click)="filter.set('GOOD')">
@@ -40,7 +50,7 @@
       <div class="icon"><span class="material-icons-round">check_circle</span></div>
     </button>
     <button class="kpi" [class.on]="filter() === 'FAIL'" style="--c:var(--red);--soft:var(--red-soft)" (click)="filter.set('FAIL')">
-      <div><div class="lbl">Fail</div><div class="num">{{ trades().length - good() }}</div><div class="note">NAK · Unmatched · Pending</div></div>
+      <div><div class="lbl">Fail</div><div class="num">{{ visible().length - good() }}</div><div class="note">NAK · Unmatched · Pending</div></div>
       <div class="icon"><span class="material-icons-round">error</span></div>
     </button>
   </div>
@@ -54,7 +64,7 @@
         </thead>
         <tbody>
           @for (t of shown(); track t.tradeRef) {
-            <tr class="clickable" [class.sel]="selectedRef() === t.tradeRef || panelRef() === t.tradeRef"
+            <tr class="clickable" [class.changed]="flashed().has(t.tradeRef)" [class.sel]="selectedRef() === t.tradeRef || panelRef() === t.tradeRef"
                 (click)="select(t.tradeRef)" title="Show lifecycle and SWIFT messages">
               <td class="mono">{{ t.tradeRef }}</td>
               <td><span class="side" [class]="t.side">{{ t.side }}</span></td>
@@ -62,7 +72,7 @@
               <td class="num-c">{{ t.quantity | number }}</td>
               <td>{{ t.tradeDate }}</td>
               <td>{{ t.settleDate }}</td>
-              <td><span class="pill" [style.background]="color(t.status)">{{ t.status }}</span></td>
+              <td><span class="pill" [class.pulse]="flashed().has(t.tradeRef)" [style.background]="color(t.status)">{{ t.status }}</span></td>
               <td>
                 @if (isFail(t)) {
                   <button class="btn-ai" (click)="investigate(t.tradeRef); $event.stopPropagation()" [disabled]="busy()">

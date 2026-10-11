@@ -41,26 +41,83 @@ export class App implements OnInit, OnDestroy {
 
   good = computed(() => this.trades().filter(t => !this.isFail(t)).length);
   shown = computed(() => this.trades().filter(t =>
+  // loading screen, one-by-one reveal, status-change highlight
+  loading = signal(true);
+  private revealCount = signal<number | null>(null); // null = show all
+  private revealTimer?: ReturnType<typeof setInterval>;
+  flashed = signal<ReadonlySet<string>>(new Set());
+  private lastStatus = new Map<string, string>();
+
+  visible = computed(() => {
+    const n = this.revealCount();
+    return n === null ? this.trades() : this.trades().slice(0, n);
+  });
+  good = computed(() => this.visible().filter(t => !this.isFail(t)).length);
+  shown = computed(() => this.visible().filter(t =>
     this.filter() === 'ALL' || (this.filter() === 'GOOD') === !this.isFail(t)));
 
   ngOnInit(): void {
-    this.load();
+    const started = Date.now();
+    this.load(true, () => {
+      // keep the loading screen up briefly so it doesn't just flicker
+      setTimeout(() => this.loading.set(false), Math.max(0, 900 - (Date.now() - started)));
+    });
     // live refresh, paused while an investigation is open
     this.timer = setInterval(() => { if (!this.panelRef()) this.load(); }, 5000);
   }
 
   ngOnDestroy(): void {
     clearInterval(this.timer);
+    clearInterval(this.revealTimer);
   }
 
-  load(): void {
+  /** reveal = show the trades one by one; done runs after the first response (ok or error). */
+  load(reveal = false, done?: () => void): void {
     this.api.trades().subscribe({
-      next: t => { this.trades.set(t); this.error.set(null); },
-      error: e => this.error.set(this.message(e)),
+      next: t => {
+        this.trackStatusChanges(t, reveal);
+        this.trades.set(t);
+        this.error.set(null);
+        if (reveal) this.reveal(t.length);
+        done?.();
+      },
+      error: e => { this.error.set(this.message(e)); done?.(); },
     });
     this.api.metrics().subscribe({ next: m => this.metrics.set(m), error: () => {} });
     this.api.drafts().subscribe({ next: d => this.drafts.set(d), error: () => {} });
     this.loadHistory();
+  }
+
+  private reveal(total: number): void {
+    clearInterval(this.revealTimer);
+    this.revealCount.set(0);
+    this.revealTimer = setInterval(() => {
+      const next = (this.revealCount() ?? total) + 1;
+      if (next >= total) {
+        clearInterval(this.revealTimer);
+        this.revealCount.set(null);
+      } else {
+        this.revealCount.set(next);
+      }
+    }, 350);
+  }
+
+  /** Flash rows whose status changed since the last poll (e.g. ACK -> MATCHED on the next demo minute). */
+  private trackStatusChanges(trades: Trade[], reset: boolean): void {
+    if (reset) this.lastStatus.clear();
+    const changed = new Set<string>();
+    for (const t of trades) {
+      const before = this.lastStatus.get(t.tradeRef);
+      if (before !== undefined && before !== t.status) changed.add(t.tradeRef);
+      this.lastStatus.set(t.tradeRef, t.status);
+    }
+    if (!changed.size) return;
+    this.flashed.set(new Set([...this.flashed(), ...changed]));
+    setTimeout(() => {
+      const left = new Set(this.flashed());
+      changed.forEach(r => left.delete(r));
+      this.flashed.set(left);
+    }, 2500);
   }
 
   select(ref: string): void {
@@ -115,7 +172,7 @@ export class App implements OnInit, OnDestroy {
     this.selectedRef.set(null);
     this.history.set(null);
     this.api.resetDemo().subscribe({
-      next: r => { this.toast(`Demo reset · ${r.loaded} trades sent`); this.load(); },
+      next: r => { this.toast(`Demo reset · ${r.loaded} trades sent`); this.load(true); },
       error: e => this.toast(this.message(e)),
     });
   }
@@ -126,7 +183,7 @@ export class App implements OnInit, OnDestroy {
     input.value = '';
     if (!file) return;
     this.api.upload(file).subscribe({
-      next: r => { this.toast(`${r.loaded} trades uploaded and sent`); this.load(); },
+      next: r => { this.toast(`${r.loaded} trades uploaded and sent`); this.load(true); },
       error: e => this.toast(this.message(e)),
     });
   }
