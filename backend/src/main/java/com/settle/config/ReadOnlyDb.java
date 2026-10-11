@@ -32,6 +32,10 @@ public class ReadOnlyDb {
             return mainJdbc;
         }
         String user = ro.username();
+        if (user.equals(dsProps.getUsername())) {
+            log.warn("DB_READONLY_USER equals DB_USER ('{}'); not a separate role - using main connection in READ ONLY transactions", user);
+            return mainJdbc;
+        }
         if (!user.matches("[a-z_][a-z0-9_]*")) {
             log.warn("DB_READONLY_USER '{}' is not a simple identifier; using main connection", user);
             return mainJdbc;
