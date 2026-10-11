@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.sentry.ISentrySpan;
+import io.sentry.Sentry;
+import io.sentry.SpanStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.support.ToolCallbacks;
@@ -90,31 +93,75 @@ public class LlmClient {
             request.set("messages", messages);
             request.set("tools", toolDefs);
 
+            ISentrySpan llmSpan = Sentry.startTransaction("llm.round", "llm");
+            llmSpan.setData("model", model);
+            llmSpan.setData("round", i + 1);
+            llmSpan.setData("temperature", temperature);
+            llmSpan.setData("maxTokens", maxTokens);
+
             long start = System.currentTimeMillis();
-            JsonNode response = http.post().contentType(MediaType.APPLICATION_JSON).body(request)
-                    .retrieve().body(JsonNode.class);
-            log.info("LLM round {}: {} ms, finish_reason={}, usage={}", i + 1, System.currentTimeMillis() - start,
+            JsonNode response;
+            try {
+                response = http.post().contentType(MediaType.APPLICATION_JSON).body(request)
+                        .retrieve().body(JsonNode.class);
+            } catch (Exception e) {
+                llmSpan.setStatus(SpanStatus.INTERNAL_ERROR);
+                llmSpan.setThrowable(e);
+                llmSpan.finish();
+                Sentry.captureException(e);
+                throw e;
+            }
+            long latencyMs = System.currentTimeMillis() - start;
+            log.info("LLM round {}: {} ms, finish_reason={}, usage={}", i + 1, latencyMs,
                     response == null ? null : response.path("choices").path(0).path("finish_reason").asText(),
                     response == null ? null : response.path("usage"));
+
             JsonNode message = response == null ? null : response.path("choices").path(0).path("message");
             if (message == null || message.isMissingNode()) {
+                llmSpan.setStatus(SpanStatus.INTERNAL_ERROR);
+                llmSpan.finish();
                 throw new IllegalStateException("LLM returned no message: " + response);
             }
             JsonNode toolCalls = message.path("tool_calls");
             if (!toolCalls.isArray() || toolCalls.isEmpty()) {
+                JsonNode usage = response.path("usage");
+                if (usage != null) {
+                    llmSpan.setData("promptTokens", usage.path("prompt_tokens").asInt(0));
+                    llmSpan.setData("completionTokens", usage.path("completion_tokens").asInt(0));
+                    llmSpan.setData("totalTokens", usage.path("total_tokens").asInt(0));
+                }
+                llmSpan.setData("finishReason", message.path("finish_reason").asText(null));
+                llmSpan.setStatus(SpanStatus.OK);
+                llmSpan.finish();
                 return message.path("content").asText(null);
             }
+
+            llmSpan.setData("toolCalls", toolCalls.size());
+            llmSpan.setStatus(SpanStatus.OK);
+            llmSpan.finish();
 
             messages.add(message); // verbatim, keeps Gemini's thought_signature
             for (JsonNode call : toolCalls) {
                 String name = call.path("function").path("name").asText();
                 String args = call.path("function").path("arguments").asText("{}");
                 ToolCallback tool = tools.get(name);
+
+                ISentrySpan toolSpan = Sentry.startTransaction("tool." + name, "tool");
+                toolSpan.setData("toolName", name);
+                toolSpan.setData("argsLength", args.length());
+
                 String result;
                 try {
                     result = tool == null ? "{\"error\":\"unknown tool " + name + "\"}" : tool.call(args.isBlank() ? "{}" : args);
+                    toolSpan.setData("resultLength", result.length());
+                    toolSpan.setStatus(SpanStatus.OK);
                 } catch (Exception e) {
                     result = "{\"error\":" + json.valueToTree(String.valueOf(e.getMessage())) + "}";
+                    toolSpan.setStatus(SpanStatus.INTERNAL_ERROR);
+                    toolSpan.setThrowable(e);
+                    Sentry.captureException(e);
+                } finally {
+                    toolSpan.finish();
                 }
                 log.debug("tool {}({}) -> {} chars", name, args, result.length());
                 messages.addObject().put("role", "tool").put("tool_call_id", call.path("id").asText())

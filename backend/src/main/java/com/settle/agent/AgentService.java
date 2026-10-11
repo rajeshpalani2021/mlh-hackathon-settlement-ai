@@ -2,6 +2,9 @@ package com.settle.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settle.config.SettleProperties;
+import io.sentry.ISentrySpan;
+import io.sentry.Sentry;
+import io.sentry.SpanStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -63,6 +66,10 @@ public class AgentService {
 
     /** Runs the agent for a trade; throws on LLM failure, timeout or unparseable output. */
     public InvestigationResult investigate(UUID investigationId, String tradeRef) throws Exception {
+        ISentrySpan transaction = Sentry.startTransaction("agent.investigate", "llm");
+        transaction.setData("investigationId", investigationId.toString());
+        transaction.setData("tradeRef", tradeRef);
+
         Future<String> future = executor.submit(() -> {
             InvestigationContext.set(investigationId);
             try {
@@ -76,10 +83,33 @@ public class AgentService {
             content = future.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (java.util.concurrent.TimeoutException e) {
             future.cancel(true);
+            transaction.setStatus(SpanStatus.DEADLINE_EXCEEDED);
+            transaction.setThrowable(e);
+            Sentry.captureException(e);
             throw new IllegalStateException("LLM did not answer within " + timeoutSeconds + "s");
+        } catch (Exception e) {
+            transaction.setStatus(SpanStatus.INTERNAL_ERROR);
+            transaction.setThrowable(e);
+            Sentry.captureException(e);
+            throw e;
         }
         log.info("Agent answer for {}: {}", tradeRef, content);
-        return json.readValue(extractJson(content), InvestigationResult.class);
+
+        InvestigationResult result;
+        try {
+            result = json.readValue(extractJson(content), InvestigationResult.class);
+            transaction.setData("confidence", result.confidence());
+            transaction.setData("rootCause", result.rootCause());
+            transaction.setStatus(SpanStatus.OK);
+        } catch (Exception e) {
+            transaction.setStatus(SpanStatus.INTERNAL_ERROR);
+            transaction.setThrowable(e);
+            Sentry.captureException(e);
+            throw e;
+        } finally {
+            transaction.finish();
+        }
+        return result;
     }
 
     /** Strips ```json fences / prose and returns the outermost {...}. */
