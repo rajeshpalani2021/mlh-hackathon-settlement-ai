@@ -85,6 +85,16 @@ export interface Metrics {
   recipes: number;
 }
 
+export interface WikiDraft {
+  id: number;
+  code: string;
+  investigation_id: string;
+  status: string;
+  nimble_sources: string[] | null;
+  draft_page_path: string | null;
+  created_at: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SettleApi {
   private http = inject(HttpClient);
@@ -117,5 +127,13 @@ export class SettleApi {
 
   approve(id: string): Observable<ApproveResult> {
     return this.http.post<ApproveResult>(`${API}/investigations/${id}/approve`, {});
+  }
+
+  drafts(): Observable<WikiDraft[]> {
+    return this.http.get<WikiDraft[]>(`${API}/wiki/drafts`);
+  }
+
+  reviewDraft(id: number): Observable<{ id: number; status: string }> {
+    return this.http.post<{ id: number; status: string }>(`${API}/wiki/drafts/${id}/review`, {});
   }
 }

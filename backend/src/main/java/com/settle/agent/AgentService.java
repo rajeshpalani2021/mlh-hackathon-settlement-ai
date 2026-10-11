@@ -24,6 +24,9 @@ public class AgentService {
             (4) inspect the original raw outbound message to find the exact field and value at fault,
             (5) for PENDING trades call getSettleStats and give an expected settle time.
             Propose at most ONE field change. Never invent codes or values; if unsure, lower confidence and say why.
+            If you encounter a reason code or error code that is NOT in the wiki, list it in unknownCodes.
+            The wiki may contain draft pages (type "draft") researched by a background job via Nimble.
+            These drafts are unverified but can be used as evidence - note them in wikiPagesUsed.
             Respond ONLY with JSON matching the schema.
 
             Fixable fields (anything else: set fix to null):
@@ -40,7 +43,8 @@ public class AgentService {
               "fix": {"field": "95P", "qualifier": "PSET", "oldValue": "...", "newValue": "..."} or null,
               "wikiPagesUsed": ["page ids you read or relied on"],
               "recipeUsed": "recipes/... id if a recipe matched, else null",
-              "recipeDraft": "if no recipe was used and you propose a fix: short markdown body describing symptom, check and fix for future cases; else null"
+              "recipeDraft": "if no recipe was used and you propose a fix: short markdown body describing symptom, check and fix for future cases; else null",
+              "unknownCodes": ["reason or error codes not found in the wiki"]
             }
             """;
 

@@ -52,3 +52,7 @@ sentry:
   traces-sample-rate: 1.0
   environment: hackathon
   release: settle@0.1.0
+
+nimble:
+  api-key: ${NIMBLE_API_KEY:}
+  base-url: ${NIMBLE_BASE_URL:https://api.nimbleway.com}

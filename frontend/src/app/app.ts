@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DecimalPipe, PercentPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Investigation, Metrics, SettleApi, Trade, TradeEvent, TradeHistory } from './settle-api';
+import { Investigation, Metrics, SettleApi, Trade, TradeEvent, TradeHistory, WikiDraft } from './settle-api';
 
 type Filter = 'ALL' | 'GOOD' | 'FAIL';
 
@@ -36,6 +36,9 @@ export class App implements OnInit, OnDestroy {
   history = signal<TradeHistory | null>(null);
   openMsg = signal<string | null>(null);
 
+  // wiki drafts (Nimble research)
+  drafts = signal<WikiDraft[]>([]);
+
   good = computed(() => this.trades().filter(t => !this.isFail(t)).length);
   shown = computed(() => this.trades().filter(t =>
     this.filter() === 'ALL' || (this.filter() === 'GOOD') === !this.isFail(t)));
@@ -56,6 +59,7 @@ export class App implements OnInit, OnDestroy {
       error: e => this.error.set(this.message(e)),
     });
     this.api.metrics().subscribe({ next: m => this.metrics.set(m), error: () => {} });
+    this.api.drafts().subscribe({ next: d => this.drafts.set(d), error: () => {} });
     this.loadHistory();
   }
 
@@ -162,6 +166,16 @@ export class App implements OnInit, OnDestroy {
   closePanel(): void {
     this.panelRef.set(null);
     this.result.set(null);
+  }
+
+  reviewDraft(id: number): void {
+    this.api.reviewDraft(id).subscribe({
+      next: () => {
+        this.toast('Draft marked as reviewed');
+        this.load();
+      },
+      error: e => this.toast(this.message(e)),
+    });
   }
 
   private toast(msg: string): void {

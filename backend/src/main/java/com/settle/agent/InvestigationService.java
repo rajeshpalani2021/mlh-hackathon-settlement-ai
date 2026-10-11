@@ -3,6 +3,7 @@ package com.settle.agent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settle.agent.InvestigationResult.ProposedFix;
+import com.settle.nimble.UnknownCodeRepository;
 import com.settle.swift.MessageRepository;
 import com.settle.swift.MockCustodianService;
 import com.settle.swift.TemplateService;
@@ -36,11 +37,12 @@ public class InvestigationService {
     private final TemplateService templates;
     private final MockCustodianService custodian;
     private final WikiService wiki;
+    private final UnknownCodeRepository unknownCodes;
     private final ObjectMapper json;
 
     public InvestigationService(InvestigationRepository investigations, AgentService agent, TradeRepository trades,
                                 MessageRepository messages, TemplateService templates, MockCustodianService custodian,
-                                WikiService wiki, ObjectMapper json) {
+                                WikiService wiki, UnknownCodeRepository unknownCodes, ObjectMapper json) {
         this.investigations = investigations;
         this.agent = agent;
         this.trades = trades;
@@ -48,6 +50,7 @@ public class InvestigationService {
         this.templates = templates;
         this.custodian = custodian;
         this.wiki = wiki;
+        this.unknownCodes = unknownCodes;
         this.json = json;
     }
 
@@ -70,6 +73,16 @@ public class InvestigationService {
         Map<String, Object> stored = new LinkedHashMap<>(json.convertValue(result, Map.class));
         stored.put("failureCode", messages.latestFailureCode(tradeRef));
         investigations.saveResult(id, stored, result.recipeUsed(), status);
+
+        // Queue unknown codes for background research via Nimble
+        if (result.unknownCodes() != null) {
+            for (String code : result.unknownCodes()) {
+                if (code != null && !code.isBlank()) {
+                    unknownCodes.save(code.strip().toUpperCase(), id);
+                }
+            }
+        }
+
         return response(id);
     }
 

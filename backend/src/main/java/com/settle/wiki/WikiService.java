@@ -1,6 +1,7 @@
 package com.settle.wiki;
 
 import com.settle.config.SettleProperties;
+import com.settle.nimble.NimbleService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +121,36 @@ public class WikiService {
                 OffsetDateTime.now(ZoneOffset.UTC), body.strip());
         try {
             Path file = root.resolve("recipes").resolve(name + ".md");
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, md, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        reload();
+        return id;
+    }
+
+    /** Writes a draft wiki page for human review. Returns the page id. */
+    public synchronized String draftPage(String code, String body, List<NimbleService.SearchResult> sources) {
+        String name = code.replaceAll("[^A-Za-z0-9-]", "") + "-draft";
+        String id = "drafts/" + name;
+        String sourceList = sources == null ? "none" :
+                sources.stream().map(NimbleService.SearchResult::url).collect(java.util.stream.Collectors.joining(", "));
+        String md = """
+                ---
+                id: %s
+                type: draft
+                keys: [%s, DRAFT, NIMBLE]
+                title: Draft - %s (pending review)
+                source: Nimble web search
+                created: %s
+                status: draft
+                sources: %s
+                ---
+                %s
+                """.formatted(id, code, code, LocalDate.now(), sourceList, body.strip());
+        try {
+            Path file = root.resolve("drafts").resolve(name + ".md");
             Files.createDirectories(file.getParent());
             Files.writeString(file, md, StandardCharsets.UTF_8);
         } catch (IOException e) {
