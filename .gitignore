@@ -1,0 +1,14 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# build / IDE
+target/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.project
+.classpath
+.settings/

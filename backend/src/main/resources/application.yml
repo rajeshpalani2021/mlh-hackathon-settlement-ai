@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: settle
+  config:
+    # Local secrets file (KEY=value), gitignored. Real env vars take precedence.
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+  sql:
+    init:
+      mode: always
+      separator: "@@"
+  servlet:
+    multipart:
+      max-file-size: 1MB
+  ai:
+    openai:
+      base-url: https://integrate.api.nvidia.com
+      api-key: ${NVIDIA_API_KEY:missing}
+      chat:
+        options:
+          model: ${NVIDIA_MODEL:meta/llama-3.3-70b-instruct}
+          temperature: 0.1
+
+settle:
+  wiki-dir: ../wiki
+  # 1 demo minute = this many real seconds
+  demo-minute-seconds: 10
+  llm-timeout-seconds: 30
+  readonly:
+    username: ${DB_READONLY_USER:}
+    password: ${DB_READONLY_PASSWORD:}

@@ -1,0 +1,16 @@
+{
+  "default": [
+    {"after": 0, "template": "ACK"},
+    {"after": 2, "template": "MT548_MATCHED"},
+    {"after": 5, "template": "MT548_SETTLED"}
+  ],
+  "HCK543000000004": [
+    {"after": 0, "template": "ACK"},
+    {"after": 2, "template": "MT548_UNMATCHED", "vars": {"reasonCode": "DQUA", "narrative": "DEAL PRICE DISAGREEMENT WITH COUNTERPARTY"}}
+  ],
+  "HCK543000000005": [
+    {"after": 0, "template": "ACK"},
+    {"after": 2, "template": "MT548_PENDING", "vars": {"reasonCode": "LACK", "narrative": "INSUFFICIENT SECURITIES IN ACCOUNT"}},
+    {"after": 8, "template": "MT548_SETTLED"}
+  ]
+}
