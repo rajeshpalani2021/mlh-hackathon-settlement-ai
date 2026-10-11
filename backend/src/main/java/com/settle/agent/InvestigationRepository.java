@@ -61,7 +61,8 @@ public class InvestigationRepository {
         return jdbc.queryForMap("""
                 SELECT count(*) AS investigations,
                        count(*) FILTER (WHERE status = 'VERIFIED') AS verified,
-                       count(*) FILTER (WHERE used_recipe IS NOT NULL) AS learned_fixes_used
+                       count(*) FILTER (WHERE used_recipe IS NOT NULL) AS learned_fixes_used,
+                       (SELECT count(*) FROM trade_event WHERE event_type = 'AUTO_FIXED') AS auto_fixed
                 FROM investigation
                 """);
     }

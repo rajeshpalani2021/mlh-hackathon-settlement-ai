@@ -30,6 +30,7 @@ public class AgentService {
             If you encounter a reason code or error code that is NOT in the wiki, list it in unknownCodes.
             The wiki may contain draft pages (type "draft") researched by a background job via Nimble.
             These drafts are unverified but can be used as evidence - note them in wikiPagesUsed.
+            Be efficient: stop calling tools as soon as you have the evidence (usually 3-5 calls; at most 8).
             Respond ONLY with JSON matching the schema.
 
             Fixable fields (anything else: set fix to null):
@@ -99,7 +100,7 @@ public class AgentService {
         try {
             result = json.readValue(extractJson(content), InvestigationResult.class);
             transaction.setData("confidence", result.confidence());
-            transaction.setData("rootCause", result.rootCause());
+            transaction.setData("rootCause", String.valueOf(result.rootCause())); // Sentry rejects null data
             transaction.setStatus(SpanStatus.OK);
         } catch (Exception e) {
             transaction.setStatus(SpanStatus.INTERNAL_ERROR);

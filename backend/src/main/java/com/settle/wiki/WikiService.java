@@ -32,7 +32,8 @@ import java.util.stream.Stream;
 public class WikiService {
     private static final Logger log = LoggerFactory.getLogger(WikiService.class);
 
-    public record Page(String id, String type, List<String> keys, String title, String body, String markdown) {}
+    public record Page(String id, String type, List<String> keys, String title, String body, String markdown,
+                       Map<String, String> frontmatter) {}
 
     public record Hit(String id, String type, String title, String snippet) {}
 
@@ -97,14 +98,21 @@ public class WikiService {
         return p == null ? null : p.markdown();
     }
 
+    /** All recipe pages (verified past fixes). */
+    public List<Page> recipes() {
+        return pages.values().stream().filter(p -> p.type().equals("recipe")).toList();
+    }
+
     public int count(String type) {
         return (int) pages.values().stream().filter(p -> p.type().equals(type)).count();
     }
 
     /** Writes recipes/CODE-FIELD-QUALIFIER.md. Called only by code after an ACKed fix. Returns the page id. */
-    public synchronized String writeRecipe(String code, String field, String qualifier, String body, String verifiedBy) {
+    public synchronized String writeRecipe(String code, String field, String qualifier, String oldValue, String newValue,
+                                           String body, String verifiedBy) {
         String name = (code + "-" + field + "-" + qualifier).replaceAll("[^A-Za-z0-9-]", "");
         String id = "recipes/" + name;
+        // fix_* fields are machine-readable so code can apply the verified fix before sending (see RecipeAutoFixer)
         String md = """
                 ---
                 id: %s
@@ -115,10 +123,14 @@ public class WikiService {
                 created: %s
                 verified_by: %s
                 verified_at: %s
+                fix_field: %s
+                fix_qualifier: %s
+                fix_old: %s
+                fix_new: %s
                 ---
                 %s
                 """.formatted(id, code, field, qualifier, code, field, qualifier, LocalDate.now(), verifiedBy,
-                OffsetDateTime.now(ZoneOffset.UTC), body.strip());
+                OffsetDateTime.now(ZoneOffset.UTC), field, qualifier, oldValue, newValue, body.strip());
         try {
             Path file = root.resolve("recipes").resolve(name + ".md");
             Files.createDirectories(file.getParent());
@@ -196,7 +208,7 @@ public class WikiService {
         String keysRaw = fm.getOrDefault("keys", "").replaceAll("[\\[\\]]", "");
         List<String> keys = Arrays.stream(keysRaw.split(",")).map(String::trim).filter(k -> !k.isEmpty()).toList();
         return new Page(fm.getOrDefault("id", rel), fm.getOrDefault("type", "concept"), keys,
-                fm.getOrDefault("title", rel), body, md);
+                fm.getOrDefault("title", rel), body, md, fm);
     }
 
     private static String snippet(Page p, List<String> terms) {

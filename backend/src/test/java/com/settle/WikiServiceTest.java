@@ -22,7 +22,7 @@ class WikiServiceTest {
             for (Path p : files.toList()) {
                 Path dest = tmp.resolve(src.relativize(p).toString());
                 if (Files.isDirectory(p)) Files.createDirectories(dest);
-                else Files.copy(p, dest);
+                else if (!src.relativize(p).toString().replace('\\', '/').startsWith("recipes/")) Files.copy(p, dest); // start without learned recipes
             }
         }
         WikiService wiki = new WikiService(new SettleProperties(tmp.toString(), 10, 30, null));
@@ -33,7 +33,7 @@ class WikiServiceTest {
         assertThat(hits.get(0).id()).isEqualTo("codes/nak-T27");
         assertThat(wiki.read("codes/nak-T27")).contains("DTCYUS33");
 
-        String id = wiki.writeRecipe("T27", "95P", "PSET", "Fix PSET DTCYUS3 -> DTCYUS33", "HCK541000000002");
+        String id = wiki.writeRecipe("T27", "95P", "PSET", "DTCYUS3", "DTCYUS33", "Fix PSET DTCYUS3 -> DTCYUS33", "HCK541000000002");
         assertThat(id).isEqualTo("recipes/T27-95P-PSET");
         hits = wiki.search("NAK T27 PSET");
         assertThat(hits.get(0).id()).isEqualTo("recipes/T27-95P-PSET");

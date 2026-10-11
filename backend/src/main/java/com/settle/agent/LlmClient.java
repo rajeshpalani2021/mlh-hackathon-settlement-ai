@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 @Component
 public class LlmClient {
     private static final Logger log = LoggerFactory.getLogger(LlmClient.class);
-    private static final int MAX_ITERATIONS = 8;
+    private static final int MAX_ITERATIONS = 10;
 
     private final RestClient http;
     private final ObjectMapper json;
@@ -86,6 +86,10 @@ public class LlmClient {
         }
 
         for (int i = 0; i < MAX_ITERATIONS; i++) {
+            if (i == MAX_ITERATIONS - 1) {
+                messages.addObject().put("role", "user")
+                        .put("content", "Tool budget used up. Do not call any more tools. Answer now with the final JSON.");
+            }
             ObjectNode request = json.createObjectNode();
             request.put("model", model);
             request.put("temperature", temperature);
@@ -94,6 +98,10 @@ public class LlmClient {
             if (!reasoningEffort.isBlank() && !model.startsWith("gemma")) request.put("reasoning_effort", reasoningEffort);
             request.set("messages", messages);
             request.set("tools", toolDefs);
+            if (i == MAX_ITERATIONS - 1) {
+                // last round: no more tools, the model must answer with what it has gathered
+                request.put("tool_choice", "none");
+            }
 
             ITransaction llmSpan = Sentry.startTransaction("llm.round", "llm");
             llmSpan.setData("model", model);
@@ -131,7 +139,8 @@ public class LlmClient {
                     llmSpan.setData("completionTokens", usage.path("completion_tokens").asInt(0));
                     llmSpan.setData("totalTokens", usage.path("total_tokens").asInt(0));
                 }
-                llmSpan.setData("finishReason", message.path("finish_reason").asText(null));
+                // finish_reason is on the choice, not the message; Sentry span data rejects null values
+                llmSpan.setData("finishReason", response.path("choices").path(0).path("finish_reason").asText(""));
                 llmSpan.setStatus(SpanStatus.OK);
                 llmSpan.finish();
                 String content = message.path("content").asText(null);
@@ -174,16 +183,16 @@ public class LlmClient {
         throw new IllegalStateException("LLM did not finish within " + MAX_ITERATIONS + " tool rounds");
     }
 
-    /** POST with up to 2 retries on transient 5xx errors (seen on Google's Gemma endpoint). */
+    /** POST with up to 4 retries (2s, 4s, 8s, 16s) on transient 5xx errors, e.g. Gemini 503 "high demand". */
     private JsonNode post(ObjectNode request) {
         for (int attempt = 1; ; attempt++) {
             try {
                 return http.post().contentType(MediaType.APPLICATION_JSON).body(request).retrieve().body(JsonNode.class);
             } catch (HttpServerErrorException e) {
-                if (attempt >= 3) throw e;
+                if (attempt >= 5) throw e;
                 log.warn("LLM HTTP {} (attempt {}), retrying", e.getStatusCode().value(), attempt);
                 try {
-                    Thread.sleep(1000L * attempt);
+                    Thread.sleep(1000L << attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     throw e;

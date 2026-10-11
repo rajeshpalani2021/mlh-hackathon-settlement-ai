@@ -8,7 +8,7 @@ type Filter = 'ALL' | 'GOOD' | 'FAIL';
 const GOOD = ['NEW', 'SENT', 'ACK', 'MATCHED', 'SETTLED'];
 const COLORS: Record<string, string> = {
   SETTLED: '#1bb8a5', SENT: '#0fb3a1', ACK: '#0fb3a1', MATCHED: '#2663f5',
-  NAK: '#f26262', UNMATCHED: '#f0a500', PENDING: '#7c5cf0', FIXED: '#1742b8',
+  NAK: '#f26262', UNMATCHED: '#f0a500', PENDING: '#7c5cf0', FIXED: '#1742b8', AUTO_FIXED: '#0b7d70',
 };
 
 @Component({
@@ -39,9 +39,9 @@ export class App implements OnInit, OnDestroy {
   // wiki drafts (Nimble research)
   drafts = signal<WikiDraft[]>([]);
 
-  // loading screen, one-by-one reveal, status-change highlight
+  // loading screen, one-by-one reveal of new trades, status-change highlight
   loading = signal(true);
-  private revealCount = signal<number | null>(null); // null = show all
+  private hidden = signal<ReadonlySet<string>>(new Set()); // trades waiting to be revealed
   private revealTimer?: ReturnType<typeof setInterval>;
   flashed = signal<ReadonlySet<string>>(new Set());
   private lastStatus = new Map<string, string>();
@@ -49,10 +49,7 @@ export class App implements OnInit, OnDestroy {
   // grid sort on Created (newest first by default; the API already returns newest first)
   createdSort = signal<'desc' | 'asc'>('desc');
 
-  visible = computed(() => {
-    const n = this.revealCount();
-    return n === null ? this.trades() : this.trades().slice(0, n);
-  });
+  visible = computed(() => this.trades().filter(t => !this.hidden().has(t.tradeRef)));
   good = computed(() => this.visible().filter(t => !this.isFail(t)).length);
   shown = computed(() => {
     const dir = this.createdSort() === 'desc' ? -1 : 1;
@@ -65,14 +62,24 @@ export class App implements OnInit, OnDestroy {
     this.createdSort.set(this.createdSort() === 'desc' ? 'asc' : 'desc');
   }
 
+  // pagination (20 trades per page)
+  readonly pageSize = 20;
+  page = signal(1);
+  pageCount = computed(() => Math.max(1, Math.ceil(this.shown().length / this.pageSize)));
+  paged = computed(() => {
+    const p = Math.min(this.page(), this.pageCount());
+    return this.shown().slice((p - 1) * this.pageSize, p * this.pageSize);
+  });
+  pageFrom = computed(() => this.shown().length ? (Math.min(this.page(), this.pageCount()) - 1) * this.pageSize + 1 : 0);
+  pageTo = computed(() => Math.min(this.shown().length, this.pageFrom() + this.pageSize - 1));
+
   ngOnInit(): void {
-    const started = Date.now();
-    this.load(true, () => {
-      // keep the loading screen up briefly so it doesn't just flicker
-      setTimeout(() => this.loading.set(false), Math.max(0, 900 - (Date.now() - started)));
-    });
+    // show every trade already in the DB (with its current status) behind the loading screen
+    const t0 = Date.now();
+    const done = () => setTimeout(() => this.loading.set(false), Math.max(0, 900 - (Date.now() - t0)));
+    this.load(true, done);
     // live refresh, paused while an investigation is open
-    this.timer = setInterval(() => { if (!this.panelRef()) this.load(); }, 5000);
+    this.timer = setInterval(() => { if (!this.panelRef()) this.load(); }, 3000);
   }
 
   ngOnDestroy(): void {
@@ -80,14 +87,31 @@ export class App implements OnInit, OnDestroy {
     clearInterval(this.revealTimer);
   }
 
-  /** reveal = show the trades one by one; done runs after the first response (ok or error). */
+  setFilter(f: Filter): void {
+    this.filter.set(f);
+    this.page.set(1);
+  }
+
+  goPage(p: number): void {
+    this.page.set(Math.min(Math.max(1, p), this.pageCount()));
+  }
+
+  /**
+   * reveal = show trades that were not on screen before one by one (first load: the first page;
+   * after an upload: the new trades). done runs after the first response (ok or error).
+   */
   load(reveal = false, done?: () => void): void {
+    const known = new Set(this.trades().map(t => t.tradeRef));
+    const firstLoad = known.size === 0;
     this.api.trades().subscribe({
       next: t => {
-        this.trackStatusChanges(t, reveal);
+        this.trackStatusChanges(t);
         this.trades.set(t);
         this.error.set(null);
-        if (reveal) this.reveal(t.length);
+        if (reveal) {
+          const fresh = t.filter(x => !known.has(x.tradeRef)).map(x => x.tradeRef);
+          this.reveal(firstLoad ? fresh.slice(0, this.pageSize) : fresh);
+        }
         done?.();
       },
       error: e => { this.error.set(this.message(e)); done?.(); },
@@ -97,23 +121,23 @@ export class App implements OnInit, OnDestroy {
     this.loadHistory();
   }
 
-  private reveal(total: number): void {
+  private reveal(refs: string[]): void {
     clearInterval(this.revealTimer);
-    this.revealCount.set(0);
+    if (!refs.length) {
+      this.hidden.set(new Set());
+      return;
+    }
+    const queue = [...refs];
+    this.hidden.set(new Set(queue));
     this.revealTimer = setInterval(() => {
-      const next = (this.revealCount() ?? total) + 1;
-      if (next >= total) {
-        clearInterval(this.revealTimer);
-        this.revealCount.set(null);
-      } else {
-        this.revealCount.set(next);
-      }
+      queue.shift();
+      this.hidden.set(new Set(queue));
+      if (!queue.length) clearInterval(this.revealTimer);
     }, 350);
   }
 
   /** Flash rows whose status changed since the last poll (e.g. ACK -> MATCHED on the next demo minute). */
-  private trackStatusChanges(trades: Trade[], reset: boolean): void {
-    if (reset) this.lastStatus.clear();
+  private trackStatusChanges(trades: Trade[]): void {
     const changed = new Set<string>();
     for (const t of trades) {
       const before = this.lastStatus.get(t.tradeRef);
@@ -161,6 +185,9 @@ export class App implements OnInit, OnDestroy {
   eventNote(e: TradeEvent): string {
     const d = e.detail ?? {};
     if (e.eventType === 'FIXED') return `:${d['field']}::${d['qualifier']} ${d['oldValue']} → ${d['newValue']}`;
+    if (e.eventType === 'AUTO_FIXED') {
+      return `learned fix ${d['recipe']}: :${d['field']}::${d['qualifier']} ${d['oldValue']} → ${d['newValue']}`;
+    }
     const parts: string[] = [];
     if (e.reasonCode) parts.push(`reason ${e.reasonCode}`);
     if (e.minutesPending != null) parts.push(`pending ${e.minutesPending} demo min`);
@@ -181,7 +208,12 @@ export class App implements OnInit, OnDestroy {
     this.selectedRef.set(null);
     this.history.set(null);
     this.api.resetDemo().subscribe({
-      next: r => { this.toast(`Demo reset · ${r.loaded} trades sent`); this.load(true); },
+      next: r => {
+        this.trades.set([]);
+        this.page.set(1);
+        this.toast(`Demo reset · ${r.loaded} trades sent`);
+        this.load(true);
+      },
       error: e => this.toast(this.message(e)),
     });
   }
@@ -192,7 +224,14 @@ export class App implements OnInit, OnDestroy {
     input.value = '';
     if (!file) return;
     this.api.upload(file).subscribe({
-      next: r => { this.toast(`${r.loaded} trades uploaded and sent`); this.load(true); },
+      next: r => {
+        const parts = [`${r.loaded} new trades sent`];
+        if (r.skipped) parts.push(`${r.skipped} already loaded`);
+        if (r.autoFixed) parts.push(`${r.autoFixed} auto-fixed by learned recipe`);
+        this.toast(parts.join(' · '));
+        this.page.set(1); // newest trades are listed first
+        this.load(true);
+      },
       error: e => this.toast(this.message(e)),
     });
   }

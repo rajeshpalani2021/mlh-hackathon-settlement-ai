@@ -106,7 +106,7 @@ public class TradeRepository {
         return m;
     }
 
-    public void deleteDemoData() {
-        jdbc.update("DELETE FROM trade WHERE trade_ref NOT LIKE 'HIST%'");
+    public int deleteDemoData() {
+        return jdbc.update("DELETE FROM trade WHERE trade_ref NOT LIKE 'HIST%'");
     }
 }

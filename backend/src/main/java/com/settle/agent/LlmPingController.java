@@ -1,5 +1,7 @@
 package com.settle.agent;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,6 +13,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Smoke test: does the configured model make a real tool call? */
 @RestController
 public class LlmPingController {
+    private static final Logger log = LoggerFactory.getLogger(LlmPingController.class);
+
     private final LlmClient llm;
 
     public LlmPingController(LlmClient llm) {
@@ -40,7 +44,8 @@ public class LlmPingController {
             out.put("ok", tools.called.get() && answer != null && answer.contains("4711"));
         } catch (Exception e) {
             out.put("ok", false);
-            out.put("error", e.getMessage());
+            log.warn("LLM ping failed", e);
+            out.put("error", e.toString());
         }
         return out;
     }

@@ -69,12 +69,16 @@ public class MockCustodianService {
                 .filter(f -> f.get("tag").equals("95P"))
                 .allMatch(f -> BIC.matcher(f.get("value")).matches());
         if (!bicsValid) {
+            log.info("OUT {} {} msgRef={} -> invalid BIC in :95P:, NAK T27 scheduled", trade.messageType(),
+                    trade.tradeRef(), msgRef);
             schedule(trade.tradeRef(), msgRef, new Step(1, "NAK", Map.of("errorCode", "T27")));
             return;
         }
         boolean resend = !msgRef.equals(trade.tradeRef());
         List<Step> steps = resend ? scenarios.get("default")
                 : scenarios.getOrDefault(trade.tradeRef(), scenarios.get("default"));
+        log.info("OUT {} {} msgRef={} -> scenario {}", trade.messageType(), trade.tradeRef(), msgRef,
+                steps.stream().map(s -> s.template() + "@" + s.after() * demoMinuteSeconds + "s").toList());
         steps.forEach(s -> schedule(trade.tradeRef(), msgRef, s));
     }
 
@@ -136,6 +140,8 @@ public class MockCustodianService {
         messages.insertEvent(tradeRef, eventType, reasonCode, trade.counterpartyBic(), minutesPending,
                 Map.of("msgRef", msgRef));
         trades.updateStatus(tradeRef, eventType);
+        log.info("IN  {} {} msgRef={} -> status {}{}", msgType, tradeRef, msgRef, eventType,
+                reasonCode == null ? "" : " reason " + reasonCode);
     }
 
     private static String eventType(String template) {

@@ -63,6 +63,7 @@ public class InvestigationService {
         Trade trade = trades.find(tradeRef)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown trade " + tradeRef));
         UUID id = investigations.create(tradeRef);
+        log.info("Investigation {} started for {} (status {})", id, tradeRef, trade.status());
 
         InvestigationResult result;
         String status;
@@ -88,6 +89,8 @@ public class InvestigationService {
             }
         }
 
+        log.info("Investigation {} for {} -> {}: rootCause='{}', fix={}, recipeUsed={}, confidence={}", id, tradeRef,
+                status, result.rootCause(), result.fix(), result.recipeUsed(), result.confidence());
         return response(id);
     }
 
@@ -206,6 +209,9 @@ public class InvestigationService {
             status = "FAILED";
         }
         investigations.updateStatus(id, status);
+        log.info("Approve {} for {}: :{}::{} {} -> {}, resent as {}, reply={} -> {}{}", id, tradeRef, fix.field(),
+                fix.qualifier(), fix.oldValue(), fix.newValue(), msgRef, reply.orElse("none"), status,
+                recipeWritten == null ? "" : ", recipe written " + recipeWritten);
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("id", id.toString());
@@ -231,7 +237,7 @@ public class InvestigationService {
                 """.formatted(failureCode, fix.field(), fix.qualifier(), text(result, "rootCause"),
                 fix.field(), fix.qualifier(), fix.oldValue(), fix.newValue(), tradeRef,
                 draft == null || draft.isNull() ? "" : draft.asText());
-        return wiki.writeRecipe(failureCode, fix.field(), fix.qualifier(), body, tradeRef);
+        return wiki.writeRecipe(failureCode, fix.field(), fix.qualifier(), fix.oldValue(), fix.newValue(), body, tradeRef);
     }
 
     public Map<String, Object> response(UUID id) {
@@ -257,6 +263,7 @@ public class InvestigationService {
         out.put("investigations", m.get("investigations"));
         out.put("verified", m.get("verified"));
         out.put("learnedFixesUsed", m.get("learned_fixes_used"));
+        out.put("autoFixed", m.get("auto_fixed"));
         out.put("recipes", wiki.count("recipe"));
         return out;
     }

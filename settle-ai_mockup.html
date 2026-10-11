@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settle AI</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round">
+<style>
+  :root{--navy:#0f1f4c;--navy2:#172a5e;--blue:#2663f5;--blue-50:#eef4ff;--blue-100:#dbe7ff;--blue-700:#1742b8;
+    --teal:#1bb8a5;--teal-soft:#d8f2ee;--teal-ink:#0b7d70;--red:#f26262;--red-soft:#fde3e3;--red-ink:#c43b3b;
+    --amber:#f0a500;--amber-soft:#fdecc8;--amber-ink:#9a6a00;--purple:#7c5cf0;--purple-soft:#f1edfe;--purple-ink:#4b2fc4;
+    --s50:#f7f9fc;--s150:#e5ebf3;--s200:#dbe2ec;--s300:#c2ccda;--s400:#8a97ab;--s500:#5f6c82;--s600:#465366;--s700:#2f3a4d;--s800:#1b2538;
+    --page:#f3f6fb;--sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;--ai:linear-gradient(90deg,#7c5cf0,#2663f5)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);font-family:var(--sans);color:var(--s700)}
+  a{color:var(--blue)}
+  button{font-family:var(--sans);cursor:pointer}
+  .top{height:56px;background:linear-gradient(180deg,var(--navy),var(--navy2));display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:#fff}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px}
+  .ai-tag{font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;background:var(--ai)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .page{max-width:1100px;margin:0 auto;padding:22px 24px;display:flex;flex-direction:column;gap:18px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:18px;font-weight:700;color:var(--s800)}
+  .client{position:relative}
+  .client select{appearance:none;-webkit-appearance:none;font:600 13px var(--sans);color:var(--navy);background:var(--blue-50);border:1.5px solid var(--blue-100);border-radius:999px;padding:7px 34px 7px 30px;cursor:pointer;min-width:170px}
+  .client select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(38,99,245,.18)}
+  .client .ic{position:absolute;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--blue);font-size:16px}
+  .client .ic.l{left:10px}.client .ic.r{right:10px;font-size:18px}
+  .sub{font-size:12px;color:var(--s500);margin-top:6px}
+  .live{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:#0fb3a1}
+  .live i{width:7px;height:7px;border-radius:50%;background:#0fb3a1;animation:p 1.6s infinite}
+  @keyframes p{50%{opacity:.3}}
+  .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .kpi{text-align:left;border-radius:14px;padding:16px 18px;border:2px solid var(--soft);background:#fff;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+  .kpi .lbl{font-size:12px;font-weight:600;color:var(--s500)}
+  .kpi .num{font-size:30px;font-weight:800;color:var(--c);margin-top:8px;line-height:1.1}
+  .kpi .note{font-size:11px;color:var(--s500);margin-top:4px}
+  .kpi .icon{width:42px;height:42px;border-radius:50%;background:var(--soft);color:var(--c);display:flex;align-items:center;justify-content:center}
+  .kpi.on{background:var(--c);border-color:var(--c)}
+  .kpi.on .lbl,.kpi.on .note{color:rgba(255,255,255,.88)}
+  .kpi.on .num{color:#fff}
+  .kpi.on .icon{background:rgba(255,255,255,.22);color:#fff}
+  .card{background:#fff;border:1px solid var(--s200);border-radius:12px;overflow:hidden}
+  .card-h{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--s200)}
+  .card-h b{font-size:14px;color:var(--s800)}
+  .card-h span{font-size:11px;color:var(--s500)}
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--s500);font-size:12px;font-weight:500;padding:10px 12px}
+  td{padding:11px 12px;border-top:1px solid var(--s150);white-space:nowrap}
+  th:first-child,td:first-child{padding-left:16px}
+  th:last-child,td:last-child{padding-right:16px;text-align:right}
+  tr:hover td{background:var(--s50)}
+  tr.sel td{background:#f6f3ff}
+  .num-c{text-align:right;font-family:var(--mono);font-size:12px}
+  .mono{font-family:var(--mono);font-size:12px}
+  .side{font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px}
+  .side.BUY{background:var(--blue-100);color:var(--blue-700)}
+  .side.SELL{background:var(--amber-soft);color:var(--amber-ink)}
+  .pill{font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px;color:#fff}
+  .btn-ai{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:999px;padding:7px 13px;background:var(--ai);color:#fff;font-size:12px;font-weight:600}
+  .btn-ai .material-icons-round{font-size:14px}
+  .empty{text-align:center!important;color:var(--s400);padding:28px}
+  .panel{background:#fff;border:1px solid #d9d0fb;border-radius:14px;overflow:hidden}
+  .panel[hidden]{display:none}
+  .panel-h{padding:13px 18px;background:var(--purple-soft);display:flex;justify-content:space-between;align-items:center}
+  .panel-h .t{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:var(--purple-ink)}
+  .panel-h .t .mono{font-size:13px;font-weight:600}
+  .btn-ghost{border:1px solid #c9bdf8;background:#fff;color:var(--purple-ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600}
+  .panel-b{padding:18px;display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+  .eyebrow{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--s500)}
+  .cause{font-size:15px;font-weight:600;line-height:1.35;color:var(--s800);margin-top:6px}
+  .expl{font-size:13px;line-height:1.55;color:var(--s600);margin:12px 0}
+  .tags{display:flex;gap:8px;flex-wrap:wrap}
+  .tag{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px}
+  .fix{background:var(--s50);border:1px solid var(--s200);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .diff{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .old{font:500 12px var(--mono);padding:6px 9px;border-radius:6px;background:var(--red-soft);color:var(--red-ink);text-decoration:line-through}
+  .new{font:600 12px var(--mono);padding:6px 9px;border-radius:6px;background:var(--teal-soft);color:var(--teal-ink)}
+  .btn-ok{border:0;border-radius:999px;padding:10px 16px;background:var(--teal);color:#fff;font-size:13px;font-weight:700;margin-top:4px}
+  .btn-ok:hover{background:#149e8d;box-shadow:0 4px 10px rgba(15,31,76,.08)}
+  .thinking{display:flex;align-items:center;gap:10px;color:var(--purple-ink);font-size:13px;padding:6px 0}
+  .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--purple);margin-right:3px;animation:p 1s infinite}
+  .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 12px 24px rgba(15,31,76,.18);opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .head-r{display:flex;align-items:center;gap:14px}
+  .btn-up{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:9px 16px;background:var(--blue);color:#fff;font-size:13px;font-weight:600}
+  .btn-up:hover{background:#1d4ed8;box-shadow:0 4px 10px rgba(15,31,76,.08)}
+  .btn-up .material-icons-round{font-size:17px}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,31,76,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .modal-bg[hidden]{display:none}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 48px rgba(15,31,76,.18);overflow:hidden}
+  .modal-h{padding:16px 20px;border-bottom:1px solid var(--s200);display:flex;justify-content:space-between;align-items:center}
+  .modal-h b{font-size:16px;color:var(--s800)}
+  .modal-h .sub{margin:4px 0 0}
+  .x{border:0;background:none;color:var(--s500);border-radius:999px;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+  .x:hover{background:var(--s150)}
+  .modal-b{padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+  .drop{border:2px dashed var(--blue-100);background:var(--blue-50);border-radius:14px;padding:28px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:background .15s,border-color .15s}
+  .drop.over{border-color:var(--blue);background:var(--blue-100)}
+  .drop .big{width:52px;height:52px;border-radius:50%;background:#fff;color:var(--blue);display:flex;align-items:center;justify-content:center}
+  .drop .big .material-icons-round{font-size:26px}
+  .drop b{font-size:14px;color:var(--s800)}
+  .drop .help{font-size:12px;color:var(--s500)}
+  .drop .acts{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+  .btn-sec{border:1px solid var(--s300);background:#fff;color:var(--s700);border-radius:999px;padding:8px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  .btn-sec:hover{background:var(--s150)}
+  .btn-sec .material-icons-round{font-size:16px}
+  .files{display:flex;flex-wrap:wrap;gap:6px}
+  .fchip{font:500 11px var(--mono);padding:5px 10px;border-radius:999px;background:var(--s150);color:var(--s700)}
+  .fchip.err{background:var(--red-soft);color:var(--red-ink)}
+  .prev{border:1px solid var(--s200);border-radius:12px;overflow:auto;max-height:280px}
+  .prev td,.prev th{padding:8px 10px;font-size:12px}
+  .prev th:last-child,.prev td:last-child{text-align:left}
+  .modal-f{padding:14px 20px;border-top:1px solid var(--s200);background:#fafbfd;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .modal-f .help{font-size:12px;color:var(--s500)}
+  .btn-ok:disabled{background:var(--s300);cursor:not-allowed;box-shadow:none}
+  tr.newrow td{animation:hl 2.4s ease-out}
+  @keyframes hl{0%{background:#fff6d6}100%{background:transparent}}
+  @media (max-width:760px){.kpis{grid-template-columns:1fr}.panel-b{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Settle <span class="ai-tag">AI</span></div>
+  <div class="avatar">EK</div>
+</header>
+
+<main class="page">
+  <div class="head">
+    <div>
+      <div class="title-row">
+        <h1>Trade Settlement</h1>
+        <label class="client">
+          <span class="material-icons-round ic l">business</span>
+          <select id="client" onchange="changeClient(this.value)">
+            <option>ABRAMSCAP</option>
+            <option>MIRACLE</option>
+            <option>GARDA</option>
+            <option>BARCAP</option>
+          </select>
+          <span class="material-icons-round ic r">expand_more</span>
+        </label>
+      </div>
+      <div class="sub">SWIFT MT541/MT543 instructions for current settle window.</div>
+    </div>
+    <div class="head-r">
+      <div class="live"><i></i>Live · refresh 5s</div>
+      <button class="btn-up" onclick="openUpload()"><span class="material-icons-round">upload_file</span>Upload Trades</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <button class="kpi on" id="f-ALL" style="--c:var(--blue);--soft:var(--blue-100)" onclick="setFilter('ALL')">
+      <div><div class="lbl">All</div><div class="num" id="n-ALL">0</div><div class="note">Trades in settle window</div></div>
+      <div class="icon"><span class="material-icons-round">layers</span></div>
+    </button>
+    <button class="kpi" id="f-GOOD" style="--c:var(--teal);--soft:var(--teal-soft)" onclick="setFilter('GOOD')">
+      <div><div class="lbl">Good</div><div class="num" id="n-GOOD">0</div><div class="note">Sent · ACK · Matched · Settled</div></div>
+      <div class="icon"><span class="material-icons-round">check_circle</span></div>
+    </button>
+    <button class="kpi" id="f-FAIL" style="--c:var(--red);--soft:var(--red-soft)" onclick="setFilter('FAIL')">
+      <div><div class="lbl">Fail</div><div class="num" id="n-FAIL">0</div><div class="note">NAK · Rejected · Unmatched · Pending</div></div>
+      <div class="icon"><span class="material-icons-round">error</span></div>
+    </button>
+  </div>
+
+  <section class="card">
+    <div class="card-h"><b>Trades</b><span id="shown"></span></div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Trade Ref</th><th>Side</th><th>Security</th><th style="text-align:right">Qty</th><th>Settle Date</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel" hidden>
+    <div class="panel-h">
+      <div class="t"><span class="material-icons-round" style="font-size:18px">auto_awesome</span>AI Investigation · <span class="mono" id="p-ref"></span></div>
+      <button class="btn-ghost" onclick="closePanel()">Close</button>
+    </div>
+    <div class="panel-b" id="p-body"></div>
+  </section>
+</main>
+<div class="modal-bg" id="up" hidden onclick="if(event.target===this)closeUpload()">
+  <div class="modal">
+    <div class="modal-h">
+      <div><b>Upload Trades</b><div class="sub">CSV, JSON or SWIFT MT541/MT543 files. Single files or a whole folder.</div></div>
+      <button class="x" onclick="closeUpload()"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-b">
+      <div class="drop" id="drop">
+        <div class="big"><span class="material-icons-round">cloud_upload</span></div>
+        <b>Drop files or a folder here</b>
+        <div class="help">.csv · .json · .txt / .fin (SWIFT)</div>
+        <div class="acts">
+          <button class="btn-sec" onclick="$('in-files').click()"><span class="material-icons-round">description</span>Choose Files</button>
+          <button class="btn-sec" onclick="$('in-dir').click()"><span class="material-icons-round">folder_open</span>Choose Folder</button>
+          <button class="btn-sec" onclick="downloadSample()"><span class="material-icons-round">download</span>Sample CSV</button>
+        </div>
+        <input type="file" id="in-files" multiple accept=".csv,.json,.txt,.fin" hidden onchange="readFiles(this.files);this.value=''">
+        <input type="file" id="in-dir" webkitdirectory directory multiple hidden onchange="readFiles(this.files);this.value=''">
+      </div>
+      <div class="files" id="up-files"></div>
+      <div class="prev" id="up-prev" hidden>
+        <table><thead><tr><th>Client</th><th>Trade Ref</th><th>Side</th><th>Security</th><th style="text-align:right">Qty</th><th>Settle Date</th><th>Status</th></tr></thead><tbody id="up-rows"></tbody></table>
+      </div>
+    </div>
+    <div class="modal-f">
+      <span class="help" id="up-sum">No trades parsed yet.</span>
+      <button class="btn-ok" id="up-go" disabled onclick="createTrades()" style="margin:0">Create Trades</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = '/api'; // change to 'http://localhost:8080/api' to use a backend
+  const GOOD = ['SENT','ACK','MATCHED','SETTLED'];
+  const COLORS = {SETTLED:'#1bb8a5',SENT:'#0fb3a1',ACK:'#0fb3a1',MATCHED:'#2663f5',NAK:'#f26262',REJECTED:'#f26262',UNMATCHED:'#f0a500',PENDING:'#7c5cf0'};
+
+  const MOCK = {
+    ABRAMSCAP: [
+      {tradeRef:'HCK543000000001',side:'SELL',securityName:'APPLE INC',quantity:1000,settleDate:'2026-10-09',status:'SETTLED'},
+      {tradeRef:'HCK541000000002',side:'BUY',securityName:'MICROSOFT CORP',quantity:500,settleDate:'2026-10-09',status:'NAK'},
+      {tradeRef:'HCK543000000003',side:'SELL',securityName:'APPLE INC',quantity:200,settleDate:'2026-10-12',status:'MATCHED'},
+      {tradeRef:'HCK543000000004',side:'SELL',securityName:'APPLE INC',quantity:300,settleDate:'2026-10-09',status:'UNMATCHED'},
+      {tradeRef:'HCK543000000005',side:'SELL',securityName:'MICROSOFT CORP',quantity:750,settleDate:'2026-10-09',status:'PENDING'}
+    ],
+    MIRACLE: [
+      {tradeRef:'MRC541000000011',side:'BUY',securityName:'NVIDIA CORP',quantity:400,settleDate:'2026-10-09',status:'SETTLED'},
+      {tradeRef:'MRC543000000012',side:'SELL',securityName:'ALPHABET INC',quantity:150,settleDate:'2026-10-10',status:'REJECTED'},
+      {tradeRef:'MRC541000000013',side:'BUY',securityName:'AMAZON.COM INC',quantity:600,settleDate:'2026-10-10',status:'ACK'}
+    ],
+    GARDA: [
+      {tradeRef:'GRD543000000021',side:'SELL',securityName:'TESLA INC',quantity:250,settleDate:'2026-10-09',status:'MATCHED'},
+      {tradeRef:'GRD541000000022',side:'BUY',securityName:'META PLATFORMS',quantity:320,settleDate:'2026-10-09',status:'SETTLED'}
+    ],
+    BARCAP: [
+      {tradeRef:'BRC541000000031',side:'BUY',securityName:'JPMORGAN CHASE',quantity:900,settleDate:'2026-10-09',status:'UNMATCHED'},
+      {tradeRef:'BRC543000000032',side:'SELL',securityName:'APPLE INC',quantity:1200,settleDate:'2026-10-12',status:'SENT'},
+      {tradeRef:'BRC541000000033',side:'BUY',securityName:'VISA INC',quantity:450,settleDate:'2026-10-09',status:'NAK'}
+    ]
+  };
+
+  const AI = {
+    NAK:{rootCause:'NACK 451:T26 — invalid place of settlement BIC',explanation:'The custodian rejected the instruction because :95P::PSET carries an 11-character BIC with a branch code not registered in DTC. Previous NACKs for this counterparty were resolved by using the 8-character BIC.',fix:{field:':95P::PSET',oldValue:'DTCYUS33XXX',newValue:'DTCYUS33'},recipeUsed:'RCP-PSET-014',confidence:94},
+    REJECTED:{rootCause:'Rejected — trade date after settlement date',explanation:':98A::TRAD is later than :98A::SETT. The booking system sent the amended trade date; settlement date should roll forward one business day.',fix:{field:':98A::SETT',oldValue:'20261010',newValue:'20261013'},recipeUsed:'RCP-DATE-007',confidence:89},
+    UNMATCHED:{rootCause:'Counterparty instruction mismatch on settlement amount',explanation:'Counterparty affirmed the trade with a settlement amount differing by 0.01 USD. Tolerance rule for this client allows rounding to 2 decimals on :19A::SETT.',fix:{field:':19A::SETT',oldValue:'USD68,250.005',newValue:'USD68,250.01'},recipeUsed:'RCP-TOL-003',confidence:88},
+    PENDING:{rootCause:'No ACK received within 30 minutes of send',explanation:'Message is held at the custodian gateway because :97A::SAFE is blank. The client SSI table holds a default safekeeping account for this security.',fix:{field:':97A::SAFE',oldValue:'(blank)',newValue:'SAFE-7731'},recipeUsed:'RCP-SSI-021',confidence:91}
+  };
+
+  let client = 'ABRAMSCAP', trades = [], filter = 'ALL', current = null, usingMock = false;
+  const $ = id => document.getElementById(id);
+  const isFail = t => !GOOD.includes(t.status);
+
+  async function load() {
+    try {
+      const res = await fetch(`${API}/trades?client=${encodeURIComponent(client)}`);
+      if (!res.ok) throw 0;
+      trades = await res.json(); usingMock = false;
+    } catch { trades = MOCK[client] || (MOCK[client] = []); usingMock = true; }
+    render();
+  }
+
+  function render() {
+    const good = trades.filter(t => !isFail(t)).length;
+    $('n-ALL').textContent = trades.length;
+    $('n-GOOD').textContent = good;
+    $('n-FAIL').textContent = trades.length - good;
+    const list = trades.filter(t => filter === 'ALL' || (filter === 'GOOD') === !isFail(t));
+    $('shown').textContent = `${client} · showing ${list.length}`;
+    $('rows').innerHTML = list.length ? list.map(t => `
+      <tr class="${current && current.tradeRef === t.tradeRef ? 'sel' : ''} ${justAdded.has(t.tradeRef) ? 'newrow' : ''}">
+        <td class="mono">${t.tradeRef}</td>
+        <td><span class="side ${t.side}">${t.side}</span></td>
+        <td style="font-weight:500">${t.securityName}</td>
+        <td class="num-c">${Number(t.quantity).toLocaleString()}</td>
+        <td>${t.settleDate}</td>
+        <td><span class="pill" style="background:${COLORS[t.status] || '#8a97ab'}">${t.status}</span></td>
+        <td>${isFail(t) ? `<button class="btn-ai" onclick="investigate('${t.tradeRef}')"><span class="material-icons-round">auto_awesome</span>Investigate</button>` : ''}</td>
+      </tr>`).join('') : '<tr><td colspan="7" class="empty">No trades</td></tr>';
+  }
+
+  function setFilter(f) {
+    filter = f;
+    ['ALL','GOOD','FAIL'].forEach(x => $('f-' + x).classList.toggle('on', x === f));
+    render();
+  }
+
+  function changeClient(c) { client = c; trades = []; closePanel(); load(); }
+
+  async function investigate(ref) {
+    const t = trades.find(x => x.tradeRef === ref);
+    current = {tradeRef: ref};
+    $('panel').hidden = false; $('p-ref').textContent = ref;
+    $('p-body').innerHTML = '<div class="thinking"><span class="dots"><i></i><i></i><i></i></span>Investigating…</div>';
+    render();
+    try {
+      const res = await fetch(`${API}/investigations`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tradeRef:ref,client})});
+      if (!res.ok) throw 0;
+      current = {tradeRef: ref, ...(await res.json())};
+    } catch {
+      await new Promise(r => setTimeout(r, 900));
+      current = {tradeRef: ref, mock: true, ...AI[t.status]};
+    }
+    showResult();
+  }
+
+  function showResult() {
+    const r = current;
+    const tags = [
+      r.recipeUsed ? `<span class="tag" style="background:var(--teal-soft);color:var(--teal-ink)">Learned fix · ${r.recipeUsed}</span>` : '',
+      r.confidence ? `<span class="tag" style="background:var(--blue-50);color:var(--blue-700)">Confidence ${r.confidence}%</span>` : ''
+    ].join('');
+    const fix = r.fix ? `
+      <div class="fix">
+        <div class="eyebrow">Proposed fix</div>
+        <div class="mono" style="font-weight:600">${r.fix.field}${r.fix.qualifier ? '::' + r.fix.qualifier : ''}</div>
+        <div class="diff"><span class="old">${r.fix.oldValue}</span><span class="material-icons-round" style="font-size:16px;color:var(--s400)">arrow_forward</span><span class="new">${r.fix.newValue}</span></div>
+        <button class="btn-ok" onclick="approve()">Approve &amp; Resend</button>
+      </div>` : '<div></div>';
+    $('p-body').innerHTML = `
+      <div>
+        <div class="eyebrow" style="color:var(--red)">Root cause</div>
+        <div class="cause">${r.rootCause || ''}</div>
+        <div class="expl">${r.explanation || ''}</div>
+        <div class="tags">${tags}</div>
+      </div>${fix}`;
+  }
+
+  async function approve() {
+    if (!current) return;
+    const ref = current.tradeRef;
+    if (current.id) {
+      try { await fetch(`${API}/investigations/${current.id}/approve`, {method:'POST'}); } catch {}
+    }
+    if (usingMock) { const t = trades.find(x => x.tradeRef === ref); if (t) t.status = 'SENT'; }
+    closePanel(); toast(`${ref} resent`); load();
+  }
+
+  function closePanel() { $('panel').hidden = true; current = null; render(); }
+
+  function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2200); }
+
+  /* ---------- Upload ---------- */
+  let parsed = [], justAdded = new Set();
+  const STATUSES = Object.keys(COLORS);
+
+  function openUpload() { parsed = []; $('up-files').innerHTML = ''; showParsed(); $('up').hidden = false; }
+  function closeUpload() { $('up').hidden = true; }
+
+  const drop = $('drop');
+  ['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', async ev => {
+    const items = [...ev.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (!items.length) return readFiles(ev.dataTransfer.files);
+    const out = [];
+    const walk = entry => new Promise(res => {
+      if (entry.isFile) entry.file(f => { out.push(f); res(); });
+      else { const r = entry.createReader(), all = [];
+        const next = () => r.readEntries(async ents => { if (!ents.length) { await Promise.all(all.map(walk)); res(); } else { all.push(...ents); next(); } });
+        next(); }
+    });
+    await Promise.all(items.map(walk));
+    readFiles(out);
+  });
+
+  async function readFiles(list) {
+    const files = [...list].filter(f => /\.(csv|json|txt|fin)$/i.test(f.name));
+    for (const f of files) {
+      let rows = [], err = false;
+      try { rows = parseFile(f.name, await f.text()); } catch { err = true; }
+      if (!rows.length) err = true;
+      parsed.push(...rows);
+      $('up-files').insertAdjacentHTML('beforeend', `<span class="fchip ${err ? 'err' : ''}">${f.webkitRelativePath || f.name} · ${err ? 'no trades found' : rows.length + ' trades'}</span>`);
+    }
+    if (!files.length) $('up-files').insertAdjacentHTML('beforeend', '<span class="fchip err">No .csv, .json, .txt or .fin files found</span>');
+    showParsed();
+  }
+
+  function norm(o) {
+    const k = {}; Object.keys(o).forEach(x => k[x.toLowerCase().replace(/[^a-z]/g, '')] = String(o[x] ?? '').trim());
+    const side = (k.side || '').toUpperCase().startsWith('B') ? 'BUY' : 'SELL';
+    const status = (k.status || 'SENT').toUpperCase();
+    return {
+      client: (k.client || k.account || client).toUpperCase(),
+      tradeRef: k.traderef || k.ref || k.tradeid || '',
+      side,
+      securityName: (k.securityname || k.security || k.name || '').toUpperCase(),
+      quantity: Number((k.quantity || k.qty || '0').replace(/,/g, '')) || 0,
+      settleDate: toDate(k.settledate || k.settle || ''),
+      status: STATUSES.includes(status) ? status : 'SENT'
+    };
+  }
+  function toDate(s) { s = s.replace(/[^0-9-/]/g, ''); if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6)}`; return s.replace(/\//g, '-'); }
+
+  function parseCSV(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    const split = l => { const out = []; let cur = '', q = false;
+      for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; }
+      out.push(cur); return out; };
+    const head = split(lines.shift() || '');
+    return lines.map(l => { const v = split(l), o = {}; head.forEach((h, i) => o[h] = v[i]); return o; });
+  }
+
+  function parseSwift(text) {
+    const msgs = text.split(/(?=\{1:)|^-\}\s*$/m).filter(m => /:20C::SEME/.test(m));
+    return msgs.map(m => {
+      const g = re => (m.match(re) || [])[1] || '';
+      const mt = g(/\{2:[IO](\d{3})/) || (/:22F::/.test(m) ? '' : '');
+      return {
+        tradeRef: g(/:20C::SEME\/\/([^\r\n]+)/),
+        side: mt === '541' ? 'BUY' : mt === '543' ? 'SELL' : (/RECE|541/.test(m) ? 'BUY' : 'SELL'),
+        securityName: g(/:35B:[^\r\n]*\r?\n([^\r\n:]+)/) || g(/:35B:([^\r\n]+)/),
+        quantity: g(/:36B::SETT\/\/[A-Z]{4}\/([\d,.]+)/).replace(/,$/, '').replace(',', '.'),
+        settleDate: g(/:98A::SETT\/\/(\d{8})/),
+        status: 'SENT'
+      };
+    });
+  }
+
+  function parseFile(name, text) {
+    let raw;
+    if (/\.json$/i.test(name)) { const j = JSON.parse(text); raw = Array.isArray(j) ? j : (j.trades || [j]); }
+    else if (/\.csv$/i.test(name)) raw = parseCSV(text);
+    else raw = parseSwift(text);
+    return raw.map(norm).filter(t => t.tradeRef);
+  }
+
+  function showParsed() {
+    $('up-prev').hidden = !parsed.length;
+    $('up-rows').innerHTML = parsed.map(t => `<tr>
+      <td style="font-weight:600;color:var(--navy)">${t.client}</td><td class="mono">${t.tradeRef}</td>
+      <td><span class="side ${t.side}">${t.side}</span></td><td>${t.securityName}</td>
+      <td class="num-c">${t.quantity.toLocaleString()}</td><td>${t.settleDate}</td>
+      <td><span class="pill" style="background:${COLORS[t.status]}">${t.status}</span></td></tr>`).join('');
+    const clients = [...new Set(parsed.map(t => t.client))];
+    $('up-sum').textContent = parsed.length ? `${parsed.length} trades · ${clients.join(', ')}` : 'No trades parsed yet.';
+    $('up-go').disabled = !parsed.length;
+    $('up-go').textContent = parsed.length ? `Create ${parsed.length} Trades` : 'Create Trades';
+  }
+
+  async function createTrades() {
+    let sent = false;
+    try {
+      const res = await fetch(`${API}/trades/bulk`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(parsed)});
+      sent = res.ok;
+    } catch {}
+    if (!sent) {
+      parsed.forEach(t => {
+        const { client: c, ...trade } = t;
+        const list = MOCK[c] || (MOCK[c] = []);
+        const i = list.findIndex(x => x.tradeRef === trade.tradeRef);
+        if (i >= 0) list[i] = trade; else list.unshift(trade);
+        if (![...$('client').options].some(o => o.value === c)) $('client').add(new Option(c, c));
+      });
+    }
+    justAdded = new Set(parsed.map(t => t.tradeRef));
+    const n = parsed.length, first = parsed[0].client;
+    closeUpload();
+    if (first !== client) { $('client').value = first; changeClient(first); } else load();
+    toast(`${n} trades created`);
+    setTimeout(() => { justAdded.clear(); }, 2500);
+  }
+
+  function downloadSample() {
+    const csv = 'client,tradeRef,side,securityName,quantity,settleDate,status\n' +
+      'ABRAMSCAP,HCK543000000101,SELL,APPLE INC,1500,2026-10-13,SENT\n' +
+      'ABRAMSCAP,HCK541000000102,BUY,MICROSOFT CORP,250,2026-10-13,NAK\n' +
+      'GARDA,GRD543000000103,SELL,TESLA INC,400,2026-10-14,PENDING\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = 'trades-sample.csv'; a.click();
+  }
+
+  load();
+  setInterval(() => { if (!current && $('up').hidden) load(); }, 5000);
+</script>
+</body>
+</html>

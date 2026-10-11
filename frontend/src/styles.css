@@ -57,6 +57,8 @@ tr.sel td{background:#f6f3ff}
 .side.SELL{background:var(--amber-soft);color:var(--amber-ink)}
 .pill{font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px;color:#fff}
 .empty{text-align:center!important;color:var(--s400);padding:28px}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:10px 16px;border-top:1px solid var(--s200);font-size:12px;color:var(--s500)}
+.empty-ic{font-size:32px;color:var(--blue-100);display:block;margin-bottom:6px}
 
 .btn-ai{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:999px;padding:7px 13px;background:var(--ai);color:#fff;font-size:12px;font-weight:600}
 .btn-ai .material-icons-round{font-size:14px}

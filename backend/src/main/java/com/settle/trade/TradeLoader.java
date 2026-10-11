@@ -1,7 +1,11 @@
 package com.settle.trade;
 
+import com.settle.agent.RecipeAutoFixer;
+import com.settle.swift.MessageRepository;
 import com.settle.swift.MockCustodianService;
 import com.settle.swift.TemplateService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -20,26 +24,57 @@ import java.util.Map;
 /** Loads a trade CSV, assigns trade/settle dates, stores trades and sends their instructions. */
 @Service
 public class TradeLoader {
+    private static final Logger log = LoggerFactory.getLogger(TradeLoader.class);
+
     private final TradeRepository trades;
     private final TradeDateService dates;
     private final TemplateService templates;
     private final MockCustodianService custodian;
 
+    private final RecipeAutoFixer autoFixer;
+    private final MessageRepository messages;
+
     public TradeLoader(TradeRepository trades, TradeDateService dates, TemplateService templates,
-                       MockCustodianService custodian) {
+                       MockCustodianService custodian, RecipeAutoFixer autoFixer, MessageRepository messages) {
         this.trades = trades;
         this.dates = dates;
         this.templates = templates;
         this.custodian = custodian;
+        this.autoFixer = autoFixer;
+        this.messages = messages;
     }
 
-    public List<Trade> loadAndSend(InputStream csv) throws IOException {
-        List<Trade> loaded = parse(csv);
-        loaded.forEach(trades::upsert);
-        for (Trade t : loaded) {
+    public record LoadResult(int loaded, int skipped, int autoFixed) {}
+
+    /** Loads a CSV, inserts only trade refs not already in the DB, and sends them. */
+    public LoadResult loadAndSend(InputStream csv) throws IOException {
+        List<Trade> parsed = parse(csv);
+        List<Trade> fresh = parsed.stream().filter(t -> trades.find(t.tradeRef()).isEmpty()).toList();
+        log.info("Trade file: {} rows, {} new, {} already loaded (skipped)", parsed.size(), fresh.size(),
+                parsed.size() - fresh.size());
+        int autoFixed = storeAndSend(fresh);
+        return new LoadResult(fresh.size(), parsed.size() - fresh.size(), autoFixed);
+    }
+
+    /**
+     * Applies verified recipes (learned fixes) before sending, stores the trades and sends their instructions.
+     * Returns how many trades were auto-fixed.
+     */
+    private int storeAndSend(List<Trade> loaded) {
+        int autoFixed = 0;
+        for (Trade original : loaded) {
+            RecipeAutoFixer.Result fixed = autoFixer.apply(original);
+            Trade t = fixed.trade();
+            trades.upsert(t);
+            for (Map<String, Object> fix : fixed.applied()) {
+                messages.insertEvent(t.tradeRef(), "AUTO_FIXED", null, t.counterpartyBic(), null, fix);
+                log.info("AUTO_FIXED {} :{}::{} {} -> {} using {}", t.tradeRef(), fix.get("field"), fix.get("qualifier"),
+                        fix.get("oldValue"), fix.get("newValue"), fix.get("recipe"));
+            }
+            if (!fixed.applied().isEmpty()) autoFixed++;
             custodian.send(t, templates.renderInstruction(t, TemplateService.msgRef(t.tradeRef(), false)), t.tradeRef());
         }
-        return loaded;
+        return autoFixed;
     }
 
     List<Trade> parse(InputStream csv) throws IOException {

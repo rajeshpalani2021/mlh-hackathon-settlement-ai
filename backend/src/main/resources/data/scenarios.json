@@ -12,5 +12,22 @@
     {"after": 1, "template": "ACK"},
     {"after": 3, "template": "MT548_PENDING", "vars": {"reasonCode": "LACK", "narrative": "INSUFFICIENT SECURITIES IN ACCOUNT"}},
     {"after": 8, "template": "MT548_SETTLED"}
+  ],
+  "HCK543000000106": [
+    {"after": 1, "template": "ACK"},
+    {"after": 3, "template": "MT548_PENDING", "vars": {"reasonCode": "LACK", "narrative": "INSUFFICIENT SECURITIES IN ACCOUNT"}},
+    {"after": 11, "template": "MT548_SETTLED"}
+  ],
+  "HCK541000000107": [
+    {"after": 1, "template": "ACK"},
+    {"after": 3, "template": "MT548_PENDING", "vars": {"reasonCode": "MONY", "narrative": "INSUFFICIENT CASH IN ACCOUNT"}}
+  ],
+  "HCK543000000108": [
+    {"after": 1, "template": "ACK"},
+    {"after": 3, "template": "MT548_UNMATCHED", "vars": {"reasonCode": "DQUA", "narrative": "QUANTITY DISAGREEMENT WITH COUNTERPARTY"}}
+  ],
+  "HCK541000000109": [
+    {"after": 1, "template": "ACK"},
+    {"after": 3, "template": "MT548_PENDING", "vars": {"reasonCode": "CLAC", "narrative": "COUNTERPARTY INSUFFICIENT SECURITIES"}}
   ]
 }

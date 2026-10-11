@@ -16,6 +16,7 @@
       <span>{{ m.verified }} verified</span>
       <span>{{ m.recipes }} recipes</span>
       <span>{{ m.learnedFixesUsed }} learned fixes used</span>
+      <span>{{ m.autoFixed }} auto-fixed before send</span>
     </div>
   }
 </header>
@@ -27,7 +28,7 @@
       <div class="sub">SWIFT MT541/MT543 instructions for the current settle window.</div>
     </div>
     <div class="head-r">
-      <div class="live"><i></i>Live · refresh 5s</div>
+      <div class="live"><i></i>Live · refresh 3s</div>
       <button class="btn-sec" (click)="resetDemo()"><span class="material-icons-round">restart_alt</span>Reset Demo</button>
       <label class="btn-up">
         <span class="material-icons-round">upload_file</span>Upload CSV
@@ -41,22 +42,22 @@
   }
 
   <div class="kpis">
-    <button class="kpi" [class.on]="filter() === 'ALL'" style="--c:var(--blue);--soft:var(--blue-100)" (click)="filter.set('ALL')">
+    <button class="kpi" [class.on]="filter() === 'ALL'" style="--c:var(--blue);--soft:var(--blue-100)" (click)="setFilter('ALL')">
       <div><div class="lbl">All</div><div class="num">{{ visible().length }}</div><div class="note">Trades in settle window</div></div>
       <div class="icon"><span class="material-icons-round">layers</span></div>
     </button>
-    <button class="kpi" [class.on]="filter() === 'GOOD'" style="--c:var(--teal);--soft:var(--teal-soft)" (click)="filter.set('GOOD')">
+    <button class="kpi" [class.on]="filter() === 'GOOD'" style="--c:var(--teal);--soft:var(--teal-soft)" (click)="setFilter('GOOD')">
       <div><div class="lbl">Good</div><div class="num">{{ good() }}</div><div class="note">Sent · ACK · Matched · Settled</div></div>
       <div class="icon"><span class="material-icons-round">check_circle</span></div>
     </button>
-    <button class="kpi" [class.on]="filter() === 'FAIL'" style="--c:var(--red);--soft:var(--red-soft)" (click)="filter.set('FAIL')">
+    <button class="kpi" [class.on]="filter() === 'FAIL'" style="--c:var(--red);--soft:var(--red-soft)" (click)="setFilter('FAIL')">
       <div><div class="lbl">Fail</div><div class="num">{{ visible().length - good() }}</div><div class="note">NAK · Unmatched · Pending</div></div>
       <div class="icon"><span class="material-icons-round">error</span></div>
     </button>
   </div>
 
   <section class="card">
-    <div class="card-h"><b>Trades</b><span>showing {{ shown().length }}</span></div>
+    <div class="card-h"><b>Trades</b><span>{{ pageFrom() }}–{{ pageTo() }} of {{ shown().length }}</span></div>
     <div class="tw">
       <table>
         <thead>
@@ -68,7 +69,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (t of shown(); track t.tradeRef) {
+          @for (t of paged(); track t.tradeRef) {
             <tr class="clickable" [class.changed]="flashed().has(t.tradeRef)" [class.sel]="selectedRef() === t.tradeRef || panelRef() === t.tradeRef"
                 (click)="select(t.tradeRef)" title="Show lifecycle and SWIFT messages">
               <td class="mono created">{{ t.createdAt | date: 'yyyy-MM-dd HH:mm:ss' }}</td>
@@ -88,11 +89,29 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="9" class="empty">No trades - click Reset Demo to load the sample trades</td></tr>
+            <tr><td colspan="9" class="empty">
+              @if (trades().length) {
+                No trades match this filter
+              } @else {
+                <span class="material-icons-round empty-ic">upload_file</span>
+                <div>No trades yet - upload a trade file (CSV) to start</div>
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    @if (pageCount() > 1) {
+      <div class="pager">
+        <button class="btn-sec" (click)="goPage(page() - 1)" [disabled]="page() <= 1">
+          <span class="material-icons-round">chevron_left</span>Prev
+        </button>
+        <span>Page {{ page() }} of {{ pageCount() }}</span>
+        <button class="btn-sec" (click)="goPage(page() + 1)" [disabled]="page() >= pageCount()">
+          Next<span class="material-icons-round">chevron_right</span>
+        </button>
+      </div>
+    }
   </section>
 
   @if (selectedRef(); as ref) {

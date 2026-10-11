@@ -34,9 +34,9 @@ public class TradeController {
     }
 
     @PostMapping("/upload")
-    public Map<String, Object> upload(@RequestParam("file") MultipartFile file) throws IOException {
-        List<Trade> loaded = loader.loadAndSend(file.getInputStream());
-        return Map.of("loaded", loaded.size());
+    public TradeLoader.LoadResult upload(@RequestParam("file") MultipartFile file) throws IOException {
+        // existing trades keep their status/history; only new trade refs are inserted and sent
+        return loader.loadAndSend(file.getInputStream());
     }
 
     @GetMapping("/{ref}/messages")

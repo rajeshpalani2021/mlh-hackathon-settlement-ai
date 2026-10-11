@@ -80,11 +80,19 @@ export interface TradeHistory {
   events: TradeEvent[];
 }
 
+/** Upload/reset result: new trades sent, refs already in the DB (skipped), trades corrected by a learned recipe. */
+export interface LoadResult {
+  loaded: number;
+  skipped: number;
+  autoFixed: number;
+}
+
 export interface Metrics {
   investigations: number;
   verified: number;
   learnedFixesUsed: number;
   recipes: number;
+  autoFixed: number;
 }
 
 export interface WikiDraft {
@@ -113,14 +121,14 @@ export class SettleApi {
     return this.http.get<Metrics>(`${API}/metrics`);
   }
 
-  resetDemo(): Observable<{ loaded: number }> {
-    return this.http.post<{ loaded: number }>(`${API}/demo/reset`, {});
+  resetDemo(): Observable<LoadResult> {
+    return this.http.post<LoadResult>(`${API}/demo/reset`, {});
   }
 
-  upload(file: File): Observable<{ loaded: number }> {
+  upload(file: File): Observable<LoadResult> {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<{ loaded: number }>(`${API}/trades/upload`, form);
+    return this.http.post<LoadResult>(`${API}/trades/upload`, form);
   }
 
   investigate(tradeRef: string): Observable<Investigation> {
