@@ -83,13 +83,27 @@ public class MessageRepository {
                 .stream().filter(Objects::nonNull).findFirst();
     }
 
-    /** ACK or NAK received for msgRef, if any. Returns the msg_type ("ACK"/"NAK"). */
-    public Optional<String> ackNakFor(String tradeRef, String msgRef) {
+    /** First ACK or NAK received for msgRef at/after `since` (DB clock). Returns "ACK"/"NAK". */
+    public Optional<String> ackNakFor(String tradeRef, String msgRef, OffsetDateTime since) {
         return jdbc.queryForList("""
                 SELECT msg_type FROM swift_message
                 WHERE trade_ref = ? AND direction = 'IN' AND msg_type IN ('ACK','NAK') AND parsed->>'ref' = ?
+                  AND event_ts >= ?
+                ORDER BY event_ts LIMIT 1
+                """, String.class, tradeRef, msgRef, since).stream().findFirst();
+    }
+
+    public OffsetDateTime dbNow() {
+        return jdbc.queryForObject("SELECT clock_timestamp()", OffsetDateTime.class);
+    }
+
+    /** Code of the most recent failure (NAK 405 code or MT548 reason) for a trade, or null. */
+    public String latestFailureCode(String tradeRef) {
+        return jdbc.queryForList("""
+                SELECT reason_code FROM swift_message
+                WHERE trade_ref = ? AND direction = 'IN' AND reason_code IS NOT NULL
                 ORDER BY event_ts DESC LIMIT 1
-                """, String.class, tradeRef, msgRef).stream().findFirst();
+                """, String.class, tradeRef).stream().findFirst().orElse(null);
     }
 
     public void deleteDemoData() {
