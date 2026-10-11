@@ -19,30 +19,28 @@ spring:
       max-file-size: 1MB
   ai:
     openai:
-      # Full endpoint = base-url + completions-path = https://integrate.api.nvidia.com/v1/chat/completions
-      base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
-      api-key: ${NVIDIA_API_KEY:missing}
+      # Google Gemini through its OpenAI-compatible endpoint:
+      # base-url + completions-path = https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+      base-url: ${LLM_BASE_URL:https://generativelanguage.googleapis.com}
+      api-key: ${GEMINI_API_KEY:missing}
       chat:
-        completions-path: /v1/chat/completions
+        completions-path: ${LLM_COMPLETIONS_PATH:/v1beta/openai/chat/completions}
         options:
-          model: ${NVIDIA_MODEL:google/gemma-4-31b-it}
-          # Room for reasoning + tool calls + final JSON (1024 got used up entirely by thinking).
-          max-tokens: 4096
-          # Low temperature for reproducible JSON answers (the NVIDIA playground sample uses 1).
+          model: ${GEMINI_MODEL:gemini-flash-latest}
+          # Room for (hidden) thinking + tool calls + the final JSON.
+          max-tokens: 8192
+          # Low temperature for reproducible JSON answers.
           temperature: 0.2
-          top-p: 0.95
-          frequency-penalty: 0
-          presence-penalty: 0
-          seed: 0
+
+server:
+  # 8080 is taken by a local llama-server on the dev machine; the Angular UI calls 8081.
+  port: ${SERVER_PORT:8081}
 
 settle:
   wiki-dir: ../wiki
   # 1 demo minute = this many real seconds
   demo-minute-seconds: 10
   llm-timeout-seconds: 30
-  # Sent as "chat_template_kwargs": {"enable_thinking": ...}. With thinking on, models like gemma-4 can spend
-  # all tokens on reasoning_content and return content = null, so it is off by default.
-  llm-enable-thinking: ${NVIDIA_ENABLE_THINKING:false}
   readonly:
     username: ${DB_READONLY_USER:}
     password: ${DB_READONLY_PASSWORD:}

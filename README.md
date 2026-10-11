@@ -14,7 +14,7 @@ Investigating a break today means reading raw MT541/MT543/MT548 text, looking up
 
 1. **Loads trades** from a CSV, assigns trade date / settle date (NY time, 20:00 boundary, T+1, holidays), renders an **MT541** (buy) or **MT543** (sell) from a template and stores the raw message in **Tiger Data** (TimescaleDB).
 2. A **mock custodian** validates the message (bad BIC → `NAK T27`) and replies on a scripted timeline with ACK and **MT548** status messages (matched / unmatched / pending / settled). These are also stored raw.
-3. For a failed trade, an **LLM agent** (NVIDIA-hosted model via Spring AI) investigates with tools: trade history, a markdown **knowledge wiki**, settlement statistics from a Timescale continuous aggregate, and read-only SQL. It returns a structured root cause and **at most one field fix**.
+3. For a failed trade, an **LLM agent** (Google Gemini via Spring AI) investigates with tools: trade history, a markdown **knowledge wiki**, settlement statistics from a Timescale continuous aggregate, and read-only SQL. It returns a structured root cause and **at most one field fix**.
 4. A **human approves**. Code (not the LLM) validates and applies the fix, re-renders and resends the message. On **ACK** the fix is **VERIFIED**, and code writes a **recipe** page into the wiki.
 5. The next time the same error happens, the agent finds the recipe first and applies the **learned fix**.
 
@@ -31,7 +31,7 @@ Investigating a break today means reading raw MT541/MT543/MT548 text, looking up
                  │                                 LiteParser (regex)             │
                  │                                        │                       │
   Browser UI ◄──►│ REST API                               ▼                       │
-  index.html     │   /api/trades           ┌──────────────────────────────┐       │
+  Angular UI     │   /api/trades           ┌──────────────────────────────┐       │
                  │   /api/investigations ─►│ AgentService (Spring AI)     │       │
                  │   /approve              │  tools: getTrade,            │       │
                  │   /api/metrics          │   getTradeHistory, wikiSearch│       │
@@ -43,8 +43,8 @@ Investigating a break today means reading raw MT541/MT543/MT548 text, looking up
                  │  → ACK? → write recipe ─────────┼──► wiki/  │ (markdown)       │
                  └─────────────────────────────────┼───────────┼──────────────────┘
                                                    │           │
-                     NVIDIA API (OpenAI-compatible)◄┘           ▼
-                     integrate.api.nvidia.com          Tiger Data (TimescaleDB)
+                     Gemini API (OpenAI-compatible)◄┘           ▼
+                     generativelanguage.googleapis.com Tiger Data (TimescaleDB)
                                                        trade, investigation,
                                                        swift_message  (hypertable)
                                                        trade_event    (hypertable)
@@ -61,13 +61,13 @@ Investigating a break today means reading raw MT541/MT543/MT548 text, looking up
 
 ## How to run
 
-Prerequisites: JDK 21+ and Maven 3.8+, a Tiger Data (TimescaleDB) service, and an NVIDIA API key (build.nvidia.com).
+Prerequisites: JDK 21+ and Maven 3.8+, a Tiger Data (TimescaleDB) service, a Google Gemini API key (aistudio.google.com), and Node 22 for the UI.
 
 ```bash
 cd backend
 cp .env.example .env      # fill in values; .env is gitignored
 mvn spring-boot:run
-# open http://localhost:8080
+# API on http://localhost:8081
 ```
 
 | Variable | Purpose |
@@ -75,17 +75,27 @@ mvn spring-boot:run
 | `DB_URL` | `jdbc:postgresql://<host>:<port>/tsdb?sslmode=require` |
 | `DB_USER`, `DB_PASSWORD` | Tiger Data credentials |
 | `DB_READONLY_USER`, `DB_READONLY_PASSWORD` | optional read-only role for the SQL tool (created at startup if permitted) |
-| `NVIDIA_API_KEY` | NVIDIA API key |
-| `NVIDIA_MODEL` | model with tool calling, default `google/gemma-4-31b-it` |
-| `NVIDIA_BASE_URL` | optional, default `https://integrate.api.nvidia.com` (+ `/v1/chat/completions`) |
-| `NVIDIA_ENABLE_THINKING` | optional, default `false`. Sent as `chat_template_kwargs.enable_thinking`. With thinking on, the model can spend all of `max_tokens` on reasoning and return `content: null` |
-
-Sampling options (`max-tokens`, `temperature`, `top-p`, penalties, `seed`) are set under `spring.ai.openai.chat.options` in `application.yml`.
+| `GEMINI_API_KEY` | Google Gemini API key |
+| `GEMINI_MODEL` | optional, default `gemini-flash-latest` |
+| `LLM_BASE_URL`, `LLM_COMPLETIONS_PATH` | optional, default `https://generativelanguage.googleapis.com` + `/v1beta/openai/chat/completions`; any OpenAI-compatible endpoint works |
+| `SERVER_PORT` | optional, default `8081` |
 | `SENTRY_DSN` | optional |
+
+Sampling options (`max-tokens`, `temperature`) are set under `spring.ai.openai.chat.options` in `application.yml`.
+
+**UI** (Angular 20, single home page, calls the API at `http://localhost:8081/api`):
+
+```bash
+cd frontend
+npm install
+npx ng serve          # open http://localhost:4200
+```
+
+Use **Reset Demo** to load the sample trades. Failed trades get an **Investigate** button, and a proposed fix can be approved with **Approve & Resend**.
 
 The schema (`schema.sql`) is idempotent and runs at startup. It creates the tables, hypertables, the `settle_stats` continuous aggregate, and about 2,000 synthetic history rows.
 
-Check that the model makes real tool calls: `GET http://localhost:8080/api/llm/ping` should return `"ok": true`.
+Check that the model makes real tool calls: `GET http://localhost:8081/api/llm/ping` should return `"ok": true`.
 
 The demo clock runs at 1 demo minute = 10 real seconds (`settle.demo-minute-seconds`).
 
@@ -93,25 +103,25 @@ The demo clock runs at 1 demo minute = 10 real seconds (`settle.demo-minute-seco
 
 ```bash
 # 1. Reset: reload 10 synthetic trades and send them all
-curl -X POST localhost:8080/api/demo/reset
-curl localhost:8080/api/trades            # HCK541000000002 and ...009 -> NAK (bad PSET "DTCYUS3")
+curl -X POST localhost:8081/api/demo/reset
+curl localhost:8081/api/trades            # HCK541000000002 and ...009 -> NAK (bad PSET "DTCYUS3")
 
 # 2. Investigate the first NAK -> fix 95P/PSET DTCYUS3 -> DTCYUS33, recipeUsed = null
-curl -X POST localhost:8080/api/investigations -H 'Content-Type: application/json' \
+curl -X POST localhost:8081/api/investigations -H 'Content-Type: application/json' \
      -d '{"tradeRef":"HCK541000000002"}'
 
 # 3. Approve -> resend -> ACK -> VERIFIED; wiki/recipes/T27-95P-PSET.md is written
-curl -X POST localhost:8080/api/investigations/<id>/approve
+curl -X POST localhost:8081/api/investigations/<id>/approve
 
 # 4. Same error on another trade -> the agent uses the learned fix
-curl -X POST localhost:8080/api/investigations -H 'Content-Type: application/json' \
+curl -X POST localhost:8081/api/investigations -H 'Content-Type: application/json' \
      -d '{"tradeRef":"HCK541000000009"}'     # recipeUsed = "recipes/T27-95P-PSET"
 
 # 5. Pending trade (LACK at slow counterparty) -> expected settle time from Timescale stats
-curl -X POST localhost:8080/api/investigations -H 'Content-Type: application/json' \
+curl -X POST localhost:8081/api/investigations -H 'Content-Type: application/json' \
      -d '{"tradeRef":"HCK543000000005"}'
 
-curl localhost:8080/api/metrics           # investigations, verified, learnedFixesUsed, recipes
+curl localhost:8081/api/metrics           # investigations, verified, learnedFixesUsed, recipes
 ```
 
 Planted scenarios in `trades.csv`:
@@ -139,7 +149,7 @@ Planted scenarios in `trades.csv`:
 
 ## Tech
 
-Java 21, Spring Boot 3.5, Spring JDBC (no JPA), Spring AI 1.1 (OpenAI starter pointed at NVIDIA's OpenAI-compatible API), Tiger Data / TimescaleDB (hypertables plus a continuous aggregate). No SWIFT libraries: messages come from text templates and are read by a small regex parser.
+Java 21, Spring Boot 3.5, Spring JDBC (no JPA), Spring AI 1.1 (OpenAI starter pointed at Gemini's OpenAI-compatible API), Angular 20 UI, Tiger Data / TimescaleDB (hypertables plus a continuous aggregate). No SWIFT libraries: messages come from text templates and are read by a small regex parser.
 
 ## Synthetic data notice
 
@@ -148,4 +158,4 @@ All trades, accounts (`HF0012345`), counterparties (`BRKRUS33XXX`, `BRKBUS33XXX`
 ## AI tools used
 
 - **Claude Code**: used during development to write the backend, templates, wiki and docs.
-- **NVIDIA-hosted LLM** (via NVIDIA's OpenAI-compatible API and Spring AI): the runtime investigator agent.
+- **Google Gemini** (`gemini-flash-latest` via Gemini's OpenAI-compatible API and Spring AI): the runtime investigator agent.

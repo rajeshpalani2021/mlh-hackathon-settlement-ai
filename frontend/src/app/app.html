@@ -1,0 +1,145 @@
+<header class="top">
+  <div class="brand">Settle <span class="ai-tag">AI</span></div>
+  @if (metrics(); as m) {
+    <div class="stats">
+      <span>{{ m.investigations }} investigations</span>
+      <span>{{ m.verified }} verified</span>
+      <span>{{ m.recipes }} recipes</span>
+      <span>{{ m.learnedFixesUsed }} learned fixes used</span>
+    </div>
+  }
+</header>
+
+<main class="page">
+  <div class="head">
+    <div>
+      <h1>Trade Settlement</h1>
+      <div class="sub">SWIFT MT541/MT543 instructions for the current settle window.</div>
+    </div>
+    <div class="head-r">
+      <div class="live"><i></i>Live · refresh 5s</div>
+      <button class="btn-sec" (click)="resetDemo()"><span class="material-icons-round">restart_alt</span>Reset Demo</button>
+      <label class="btn-up">
+        <span class="material-icons-round">upload_file</span>Upload CSV
+        <input type="file" accept=".csv" hidden (change)="upload($event)">
+      </label>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="alert">{{ error() }}</div>
+  }
+
+  <div class="kpis">
+    <button class="kpi" [class.on]="filter() === 'ALL'" style="--c:var(--blue);--soft:var(--blue-100)" (click)="filter.set('ALL')">
+      <div><div class="lbl">All</div><div class="num">{{ trades().length }}</div><div class="note">Trades in settle window</div></div>
+      <div class="icon"><span class="material-icons-round">layers</span></div>
+    </button>
+    <button class="kpi" [class.on]="filter() === 'GOOD'" style="--c:var(--teal);--soft:var(--teal-soft)" (click)="filter.set('GOOD')">
+      <div><div class="lbl">Good</div><div class="num">{{ good() }}</div><div class="note">Sent · ACK · Matched · Settled</div></div>
+      <div class="icon"><span class="material-icons-round">check_circle</span></div>
+    </button>
+    <button class="kpi" [class.on]="filter() === 'FAIL'" style="--c:var(--red);--soft:var(--red-soft)" (click)="filter.set('FAIL')">
+      <div><div class="lbl">Fail</div><div class="num">{{ trades().length - good() }}</div><div class="note">NAK · Unmatched · Pending</div></div>
+      <div class="icon"><span class="material-icons-round">error</span></div>
+    </button>
+  </div>
+
+  <section class="card">
+    <div class="card-h"><b>Trades</b><span>showing {{ shown().length }}</span></div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Trade Ref</th><th>Side</th><th>Security</th><th class="r">Qty</th><th>Trade Date</th><th>Settle Date</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (t of shown(); track t.tradeRef) {
+            <tr [class.sel]="panelRef() === t.tradeRef">
+              <td class="mono">{{ t.tradeRef }}</td>
+              <td><span class="side" [class]="t.side">{{ t.side }}</span></td>
+              <td class="strong">{{ t.securityName }}</td>
+              <td class="num-c">{{ t.quantity | number }}</td>
+              <td>{{ t.tradeDate }}</td>
+              <td>{{ t.settleDate }}</td>
+              <td><span class="pill" [style.background]="color(t.status)">{{ t.status }}</span></td>
+              <td>
+                @if (isFail(t)) {
+                  <button class="btn-ai" (click)="investigate(t.tradeRef)" [disabled]="busy()">
+                    <span class="material-icons-round">auto_awesome</span>Investigate
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="8" class="empty">No trades - click Reset Demo to load the sample trades</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  @if (panelRef(); as ref) {
+    <section class="panel">
+      <div class="panel-h">
+        <div class="t"><span class="material-icons-round">auto_awesome</span>AI Investigation · <span class="mono">{{ ref }}</span></div>
+        <button class="btn-ghost" (click)="closePanel()">Close</button>
+      </div>
+
+      @if (result(); as r) {
+        <div class="panel-b">
+          <div>
+            <div class="eyebrow red">Root cause</div>
+            <div class="cause">{{ r.rootCause }}</div>
+            <div class="expl">{{ r.explanation }}</div>
+            <div class="tags">
+              @if (r.recipeUsed) {
+                <span class="tag learned">Learned fix · {{ r.recipeUsed }}</span>
+              }
+              @if (r.confidence) {
+                <span class="tag conf">Confidence {{ r.confidence | percent }}</span>
+              }
+              @for (p of r.wikiPagesUsed ?? []; track p) {
+                <span class="tag wiki">{{ p }}</span>
+              }
+            </div>
+
+            @if (r.steps?.length) {
+              <div class="eyebrow steps-h">Agent steps</div>
+              <ol class="steps">
+                @for (s of r.steps; track s.n) {
+                  <li><span class="mono tool">{{ s.tool }}</span> {{ s.summary }}</li>
+                }
+              </ol>
+            }
+          </div>
+
+          @if (r.fix; as f) {
+            <div class="fix">
+              <div class="eyebrow">Proposed fix</div>
+              <div class="mono strong">:{{ f.field }}::{{ f.qualifier }}</div>
+              <div class="diff">
+                <span class="old">{{ f.oldValue }}</span>
+                <span class="material-icons-round arrow">arrow_forward</span>
+                <span class="new">{{ f.newValue }}</span>
+              </div>
+              <button class="btn-ok" (click)="approve()" [disabled]="busy()">
+                {{ busy() ? 'Resending…' : 'Approve & Resend' }}
+              </button>
+            </div>
+          } @else {
+            <div class="fix">
+              <div class="eyebrow">Proposed fix</div>
+              <div class="expl">No field change proposed.</div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="panel-b one">
+          <div class="thinking"><span class="dots"><i></i><i></i><i></i></span>Investigating… the agent is reading the SWIFT history and the wiki</div>
+        </div>
+      }
+    </section>
+  }
+</main>
+
+<div class="toast" [class.show]="toastMsg()">{{ toastMsg() }}</div>

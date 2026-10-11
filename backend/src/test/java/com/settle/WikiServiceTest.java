@@ -25,7 +25,7 @@ class WikiServiceTest {
                 else Files.copy(p, dest);
             }
         }
-        WikiService wiki = new WikiService(new SettleProperties(tmp.toString(), 10, 30, false, null));
+        WikiService wiki = new WikiService(new SettleProperties(tmp.toString(), 10, 30, null));
         wiki.reload();
 
         List<WikiService.Hit> hits = wiki.search("T27");
