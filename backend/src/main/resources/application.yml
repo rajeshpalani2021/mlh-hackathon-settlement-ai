@@ -44,3 +44,9 @@ settle:
   readonly:
     username: ${DB_READONLY_USER:}
     password: ${DB_READONLY_PASSWORD:}
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  traces-sample-rate: 1.0
+  environment: hackathon
+  release: settle@0.1.0
