@@ -30,20 +30,7 @@ public class TradeController {
 
     @GetMapping
     public List<Map<String, Object>> list() {
-        return trades.findAll().stream().map(t -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("tradeRef", t.tradeRef());
-            m.put("side", t.side());
-            m.put("securityName", t.securityName());
-            m.put("isin", t.isin());
-            m.put("quantity", t.quantity());
-            m.put("price", t.price());
-            m.put("currency", t.currency());
-            m.put("tradeDate", t.tradeDate().toString());
-            m.put("settleDate", t.settleDate().toString());
-            m.put("status", t.status());
-            return m;
-        }).toList();
+        return trades.listView();
     }
 
     @PostMapping("/upload")

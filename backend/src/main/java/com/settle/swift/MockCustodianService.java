@@ -69,7 +69,7 @@ public class MockCustodianService {
                 .filter(f -> f.get("tag").equals("95P"))
                 .allMatch(f -> BIC.matcher(f.get("value")).matches());
         if (!bicsValid) {
-            schedule(trade.tradeRef(), msgRef, new Step(0, "NAK", Map.of("errorCode", "T27")));
+            schedule(trade.tradeRef(), msgRef, new Step(1, "NAK", Map.of("errorCode", "T27")));
             return;
         }
         boolean resend = !msgRef.equals(trade.tradeRef());

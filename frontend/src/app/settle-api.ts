@@ -16,6 +16,8 @@ export interface Trade {
   tradeDate: string;
   settleDate: string;
   status: string;
+  /** When the trade was loaded into Settle (ISO timestamp). */
+  createdAt: string;
 }
 
 export interface Fix {

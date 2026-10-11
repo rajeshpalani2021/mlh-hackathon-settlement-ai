@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.sentry.ISentrySpan;
+import io.sentry.ITransaction;
 import io.sentry.Sentry;
 import io.sentry.SpanStatus;
 import org.slf4j.Logger;
@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.Arrays;
@@ -50,7 +51,7 @@ public class LlmClient {
                      @Value("${settle.llm-reasoning-effort:low}") String reasoningEffort) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
-        factory.setReadTimeout(60_000);
+        factory.setReadTimeout(120_000); // Gemma's final answer round can take 50s+
         this.http = RestClient.builder()
                 .requestFactory(factory)
                 .baseUrl(baseUrl + completionsPath)
@@ -89,11 +90,12 @@ public class LlmClient {
             request.put("model", model);
             request.put("temperature", temperature);
             request.put("max_tokens", maxTokens);
-            if (!reasoningEffort.isBlank()) request.put("reasoning_effort", reasoningEffort);
+            // Gemma models reject reasoning_effort ("Thinking level is not supported for this model")
+            if (!reasoningEffort.isBlank() && !model.startsWith("gemma")) request.put("reasoning_effort", reasoningEffort);
             request.set("messages", messages);
             request.set("tools", toolDefs);
 
-            ISentrySpan llmSpan = Sentry.startTransaction("llm.round", "llm");
+            ITransaction llmSpan = Sentry.startTransaction("llm.round", "llm");
             llmSpan.setData("model", model);
             llmSpan.setData("round", i + 1);
             llmSpan.setData("temperature", temperature);
@@ -102,8 +104,7 @@ public class LlmClient {
             long start = System.currentTimeMillis();
             JsonNode response;
             try {
-                response = http.post().contentType(MediaType.APPLICATION_JSON).body(request)
-                        .retrieve().body(JsonNode.class);
+                response = post(request);
             } catch (Exception e) {
                 llmSpan.setStatus(SpanStatus.INTERNAL_ERROR);
                 llmSpan.setThrowable(e);
@@ -133,7 +134,9 @@ public class LlmClient {
                 llmSpan.setData("finishReason", message.path("finish_reason").asText(null));
                 llmSpan.setStatus(SpanStatus.OK);
                 llmSpan.finish();
-                return message.path("content").asText(null);
+                String content = message.path("content").asText(null);
+                // Gemma returns its reasoning inline as <thought>...</thought>; keep only the answer
+                return content == null ? null : content.replaceAll("(?s)<thought>.*?</thought>", "").strip();
             }
 
             llmSpan.setData("toolCalls", toolCalls.size());
@@ -146,7 +149,7 @@ public class LlmClient {
                 String args = call.path("function").path("arguments").asText("{}");
                 ToolCallback tool = tools.get(name);
 
-                ISentrySpan toolSpan = Sentry.startTransaction("tool." + name, "tool");
+                ITransaction toolSpan = Sentry.startTransaction("tool." + name, "tool");
                 toolSpan.setData("toolName", name);
                 toolSpan.setData("argsLength", args.length());
 
@@ -169,6 +172,24 @@ public class LlmClient {
             }
         }
         throw new IllegalStateException("LLM did not finish within " + MAX_ITERATIONS + " tool rounds");
+    }
+
+    /** POST with up to 2 retries on transient 5xx errors (seen on Google's Gemma endpoint). */
+    private JsonNode post(ObjectNode request) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return http.post().contentType(MediaType.APPLICATION_JSON).body(request).retrieve().body(JsonNode.class);
+            } catch (HttpServerErrorException e) {
+                if (attempt >= 3) throw e;
+                log.warn("LLM HTTP {} (attempt {}), retrying", e.getStatusCode().value(), attempt);
+                try {
+                    Thread.sleep(1000L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
     }
 
     private JsonNode readTree(String s) {

@@ -48,8 +48,31 @@ public class TradeRepository {
         return jdbc.query("SELECT * FROM trade WHERE trade_ref = ?", MAPPER, tradeRef).stream().findFirst();
     }
 
+    /** Grid rows for /api/trades, newest loaded first. */
+    public List<Map<String, Object>> listView() {
+        return jdbc.query("""
+                SELECT trade_ref, side, security_name, isin, quantity, price, currency, trade_date, settle_date,
+                       status, created_at
+                FROM trade ORDER BY created_at DESC, trade_ref
+                """, (rs, i) -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("tradeRef", rs.getString("trade_ref"));
+            m.put("side", rs.getString("side"));
+            m.put("securityName", rs.getString("security_name"));
+            m.put("isin", rs.getString("isin"));
+            m.put("quantity", rs.getBigDecimal("quantity"));
+            m.put("price", rs.getBigDecimal("price"));
+            m.put("currency", rs.getString("currency"));
+            m.put("tradeDate", rs.getDate("trade_date").toLocalDate().toString());
+            m.put("settleDate", rs.getDate("settle_date").toLocalDate().toString());
+            m.put("status", rs.getString("status"));
+            m.put("createdAt", rs.getObject("created_at", OffsetDateTime.class).toString());
+            return m;
+        });
+    }
+
     public List<Trade> findAll() {
-        return jdbc.query("SELECT * FROM trade ORDER BY trade_ref", MAPPER);
+        return jdbc.query("SELECT * FROM trade ORDER BY created_at DESC, trade_ref", MAPPER);
     }
 
     public void updateStatus(String tradeRef, String status) {

@@ -89,3 +89,7 @@ CREATE TABLE IF NOT EXISTS unknown_code (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )
 @@
+
+-- When the trade was loaded into Settle (grid sorts newest first). clock_timestamp() so trades in one upload differ.
+ALTER TABLE trade ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+@@

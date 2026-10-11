@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settle.agent.InvestigationResult.ProposedFix;
 import com.settle.nimble.UnknownCodeRepository;
+import com.settle.config.SettleProperties;
 import com.settle.swift.MessageRepository;
 import com.settle.swift.MockCustodianService;
 import com.settle.swift.TemplateService;
@@ -39,10 +40,12 @@ public class InvestigationService {
     private final WikiService wiki;
     private final UnknownCodeRepository unknownCodes;
     private final ObjectMapper json;
+    private final int ackWaitMillis;
 
     public InvestigationService(InvestigationRepository investigations, AgentService agent, TradeRepository trades,
                                 MessageRepository messages, TemplateService templates, MockCustodianService custodian,
-                                WikiService wiki, UnknownCodeRepository unknownCodes, ObjectMapper json) {
+                                WikiService wiki, UnknownCodeRepository unknownCodes, ObjectMapper json,
+                                SettleProperties props) {
         this.investigations = investigations;
         this.agent = agent;
         this.trades = trades;
@@ -52,6 +55,8 @@ public class InvestigationService {
         this.wiki = wiki;
         this.unknownCodes = unknownCodes;
         this.json = json;
+        // the custodian answers a resend after 1 demo minute; wait for that plus a margin
+        this.ackWaitMillis = (props.demoMinuteSeconds() + 5) * 1000;
     }
 
     public Map<String, Object> investigate(String tradeRef) {
@@ -67,7 +72,7 @@ public class InvestigationService {
         } catch (Exception e) {
             log.warn("Investigation {} for {} failed: {}", id, tradeRef, e.toString());
             result = new InvestigationResult("LLM unavailable", "The investigator could not complete: " + e.getMessage(),
-                    0.0, null, List.of(), null, null);
+                    0.0, null, List.of(), null, null, List.of());
             status = "ERROR";
         }
         Map<String, Object> stored = new LinkedHashMap<>(json.convertValue(result, Map.class));
@@ -184,7 +189,7 @@ public class InvestigationService {
 
         // 3. wait for ACK/NAK
         Optional<String> reply = Optional.empty();
-        for (int i = 0; i < 25 && reply.isEmpty(); i++) {
+        for (int waited = 0; waited < ackWaitMillis && reply.isEmpty(); waited += 200) {
             sleep(200);
             reply = messages.ackNakFor(tradeRef, msgRef, since);
         }

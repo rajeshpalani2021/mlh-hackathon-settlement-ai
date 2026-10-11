@@ -38,9 +38,11 @@ server:
 
 settle:
   wiki-dir: ../wiki
-  # 1 demo minute = this many real seconds
-  demo-minute-seconds: 10
-  llm-timeout-seconds: 30
+  # 1 demo minute = this many real seconds. scenarios.json "after" is in demo minutes:
+  # first reply (ACK/NAK) at 1 = 15s, then each MT548 status change every 2 = 30s.
+  demo-minute-seconds: 15
+  # Gemma rounds take 4-20s (the final answer can take 50s+) and an investigation needs ~5-8 rounds
+  llm-timeout-seconds: 180
   # Gemini 3 thinks at high effort by default (slow); low keeps an investigation well under the timeout.
   llm-reasoning-effort: ${GEMINI_REASONING_EFFORT:low}
   readonly:
@@ -56,3 +58,12 @@ sentry:
 nimble:
   api-key: ${NIMBLE_API_KEY:}
   base-url: ${NIMBLE_BASE_URL:https://api.nimbleway.com}
+
+logging:
+  # Written relative to where the app is started (backend/) -> backend/logs/settle.log, rolls at 10MB
+  file:
+    name: logs/settle.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7

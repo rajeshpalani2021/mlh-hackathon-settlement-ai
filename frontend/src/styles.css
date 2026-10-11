@@ -152,3 +152,9 @@ tr.clickable{cursor:pointer}
 .tag.reviewed{background:var(--teal-soft);color:var(--teal-ink)}
 
 @media (max-width:760px){.kpis{grid-template-columns:1fr}.panel-b,.detail-b{grid-template-columns:1fr}.stats{display:none}}
+
+/* Created column: sortable header */
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{color:var(--blue)}
+.sort-ic{font-size:13px;vertical-align:-2px}
+td.created{color:var(--s500)}

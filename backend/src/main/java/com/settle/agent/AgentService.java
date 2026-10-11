@@ -2,7 +2,7 @@ package com.settle.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.settle.config.SettleProperties;
-import io.sentry.ISentrySpan;
+import io.sentry.ITransaction;
 import io.sentry.Sentry;
 import io.sentry.SpanStatus;
 import org.slf4j.Logger;
@@ -66,7 +66,7 @@ public class AgentService {
 
     /** Runs the agent for a trade; throws on LLM failure, timeout or unparseable output. */
     public InvestigationResult investigate(UUID investigationId, String tradeRef) throws Exception {
-        ISentrySpan transaction = Sentry.startTransaction("agent.investigate", "llm");
+        ITransaction transaction = Sentry.startTransaction("agent.investigate", "llm");
         transaction.setData("investigationId", investigationId.toString());
         transaction.setData("tradeRef", tradeRef);
 

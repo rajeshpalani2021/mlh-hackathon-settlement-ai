@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { DecimalPipe, PercentPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Investigation, Metrics, SettleApi, Trade, TradeEvent, TradeHistory, WikiDraft } from './settle-api';
 
@@ -13,7 +13,7 @@ const COLORS: Record<string, string> = {
 
 @Component({
   selector: 'app-root',
-  imports: [DecimalPipe, PercentPipe],
+  imports: [DatePipe, DecimalPipe, PercentPipe],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -39,8 +39,6 @@ export class App implements OnInit, OnDestroy {
   // wiki drafts (Nimble research)
   drafts = signal<WikiDraft[]>([]);
 
-  good = computed(() => this.trades().filter(t => !this.isFail(t)).length);
-  shown = computed(() => this.trades().filter(t =>
   // loading screen, one-by-one reveal, status-change highlight
   loading = signal(true);
   private revealCount = signal<number | null>(null); // null = show all
@@ -48,13 +46,24 @@ export class App implements OnInit, OnDestroy {
   flashed = signal<ReadonlySet<string>>(new Set());
   private lastStatus = new Map<string, string>();
 
+  // grid sort on Created (newest first by default; the API already returns newest first)
+  createdSort = signal<'desc' | 'asc'>('desc');
+
   visible = computed(() => {
     const n = this.revealCount();
     return n === null ? this.trades() : this.trades().slice(0, n);
   });
   good = computed(() => this.visible().filter(t => !this.isFail(t)).length);
-  shown = computed(() => this.visible().filter(t =>
-    this.filter() === 'ALL' || (this.filter() === 'GOOD') === !this.isFail(t)));
+  shown = computed(() => {
+    const dir = this.createdSort() === 'desc' ? -1 : 1;
+    return this.visible()
+      .filter(t => this.filter() === 'ALL' || (this.filter() === 'GOOD') === !this.isFail(t))
+      .sort((a, b) => dir * a.createdAt.localeCompare(b.createdAt) || a.tradeRef.localeCompare(b.tradeRef));
+  });
+
+  toggleCreatedSort(): void {
+    this.createdSort.set(this.createdSort() === 'desc' ? 'asc' : 'desc');
+  }
 
   ngOnInit(): void {
     const started = Date.now();

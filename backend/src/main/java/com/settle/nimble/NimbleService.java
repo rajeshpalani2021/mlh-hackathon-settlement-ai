@@ -20,7 +20,7 @@ public class NimbleService {
 
     public NimbleService(@Value("${nimble.api-key:}") String apiKey,
                          @Value("${nimble.base-url:https://api.nimbleway.com}") String baseUrl) {
-        this.apiKey = <_REDACTED>
+        this.apiKey = apiKey;
         this.baseUrl = baseUrl;
     }
 
@@ -28,7 +28,7 @@ public class NimbleService {
 
     /** Searches the web for the given query. Returns up to {limit} results. */
     public List<SearchResult> search(String query, int limit) {
-        if (apiKey =<_REDACTED> null || apiKey.isBlank()) {
+        if (apiKey == null || apiKey.isBlank()) {
             log.warn("Nimble API key not configured, skipping search for: {}", query);
             return List.of();
         }
